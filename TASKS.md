@@ -145,27 +145,27 @@
 - [ ] `src/db/migrations/` (migrate-mongo setup)
 
 ### 2.4 Cross-cutting middleware (in chain order)
-- [ ] `src/middleware/correlation-id.ts`
-- [ ] `src/middleware/security-headers.ts` (helmet config)
-- [ ] `src/middleware/cors.ts` (per-product allowlist)
-- [ ] `src/middleware/rate-limit.ts` (Redis token bucket + headers)
-- [ ] `src/middleware/api-key.ts` (Flow E)
-- [ ] `src/middleware/jwt-auth.ts` (dual-check: Redis + Mongo fallback)
-- [ ] `src/middleware/idempotency.ts` (Redis cache + Mongo)
-- [ ] `src/middleware/audit-log.ts` (auto-fire on state changes)
-- [ ] `src/middleware/error-handler.ts` (final error mapper)
-- [ ] `src/middleware/not-found.ts`
+- [x] `src/middleware/correlation-id.ts`
+- [x] `src/middleware/security-headers.ts` (helmet config)
+- [x] `src/middleware/cors.ts` (per-product allowlist)
+- [x] `src/middleware/rate-limit.ts` (Redis token bucket + headers)
+- [x] `src/middleware/api-key.ts` (Flow E)
+- [x] `src/middleware/jwt-auth.ts` (dual-check: Redis + Mongo fallback)
+- [x] `src/middleware/idempotency.ts` (Redis cache + Mongo)
+- [x] `src/middleware/audit-log.ts` (auto-fire on state changes)
+- [x] `src/middleware/error-handler.ts` (final error mapper)
+- [x] `src/middleware/not-found.ts`
 
 ### 2.5 Repos + services scaffolding
-- [ ] `src/repos/` directory + base repo pattern
-- [ ] `src/services/` directory + base service pattern
-- [ ] `src/handlers/` directory + base handler pattern
-- [ ] `src/router.ts` (mounts all routes)
+- [x] `src/repos/` directory + base repo pattern
+- [x] `src/services/` directory + base service pattern
+- [x] `src/handlers/` directory + base handler pattern
+- [x] `src/router.ts` (mounts all routes)
 
 ### 2.6 Smoke test
-- [ ] `GET /v1/health` returns 200
-- [ ] `GET /v1/health/deep` validates Mongo + Redis + S3
-- [ ] Bootstrap script creates SUPER_ADMIN successfully
+- [x] `GET /v1/health` returns 200
+- [x] `GET /v1/health/deep` validates Mongo + Redis + S3
+- [x] Bootstrap script creates SUPER_ADMIN successfully
 
 ---
 
@@ -370,6 +370,6 @@
 ## Tracking notes
 
 - **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 2 — apps/api foundation (libs + middleware + models)
-- **Next milestone:** Phase 2 foundation complete + smoke test green
-- **Last completed wave:** Phase 0 docs + Phase 1.1/1.2/1.3 scaffolds + packages/types ErrorCode + AppError + tests
+- **Currently in-progress:** Phase 3 — vertical slices (Flow A super admin bootstrap + signin)
+- **Next milestone:** Flow A complete (auth bootstrap + signin + MFA)
+- **Last completed wave:** Phase 2.4/2.5/2.6 — middleware chain + scaffolds + health/deep + bootstrap script (93 unit tests green)

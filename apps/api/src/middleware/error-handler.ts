@@ -32,6 +32,5 @@ export function errorHandler(
   res.status(status).json(appErr.toResponseJSON(correlationId));
 }
 
-export function notFoundHandler(req: Request, _res: Response, next: NextFunction): void {
-  next(new AppError(ErrorCode.NOT_FOUND, `Route not found: ${req.method} ${req.path}`));
-}
+// Re-exported for backwards-compatibility with app.ts; canonical home is ./not-found.ts.
+export { notFoundHandler } from './not-found.js';
