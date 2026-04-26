@@ -217,11 +217,11 @@
 - [x] **Flow C5** — Billing config (gateway routing per currency)
 
 ### 3.4 Plans, Subscriptions, Checkout
-- [ ] **Flow D** — Plan CRUD + publish + Stripe price sync
-- [ ] **Flow AO** — Plan archival cascade
-- [ ] Public plan endpoint (cached 5m, YC-015)
-- [ ] **Flow J** — Stripe checkout + webhook handlers (`webhookEventsProcessed` dedup)
-- [ ] **Flow J (SSLCommerz)** — Two-step IPN flow + Stripe-as-billing-calendar
+- [x] **Flow D** — Plan CRUD + publish + Stripe price sync
+- [x] **Flow AO** — Plan archival cascade
+- [x] Public plan endpoint (cached 5m, YC-015)
+- [x] **Flow J** — Stripe checkout + webhook handlers (`webhookEventsProcessed` dedup)
+- [x] **Flow J (SSLCommerz)** — Two-step IPN flow + Stripe-as-billing-calendar
 - [ ] **Flow G** — Trial flow + `billing.trial.tick` cron
 - [ ] **Flow R / AE** — Plan upgrade/downgrade + preview + seat-overflow guard
 - [ ] **Flow S** — Seat change
@@ -275,7 +275,7 @@
 - [x] `src/schemas/auth.ts` (signup, signin, refresh, logout, etc.)
 - [ ] `src/schemas/users.ts`
 - [x] `src/schemas/workspaces.ts`
-- [ ] `src/schemas/billing.ts`
+- [x] `src/schemas/billing.ts`
 - [ ] `src/schemas/bundles.ts`
 - [ ] `src/schemas/admin.ts`
 - [ ] `src/schemas/webhooks.ts` (outbound payloads)
@@ -370,6 +370,6 @@
 ## Tracking notes
 
 - **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 3 — vertical slices (Flow A super admin bootstrap + signin)
-- **Next milestone:** Flow A complete (auth bootstrap + signin + MFA)
-- **Last completed wave:** Phase 2.4/2.5/2.6 — middleware chain + scaffolds + health/deep + bootstrap script (93 unit tests green)
+- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout (Wave 3 SSLCommerz done; next: Trial flow + cron)
+- **Next milestone:** Flow G — Trial flow + `billing.trial.tick` cron
+- **Last completed wave:** Phase 3.4 Wave 3 — SSLCommerz checkout + IPN (Flow J4) with Stripe-as-billing-calendar (115 integration tests green)

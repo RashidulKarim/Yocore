@@ -73,6 +73,13 @@ const envSchema = z.object({
    * `-1` = unlimited. Phase 3.4 swaps this for a plan-driven check.
    */
   WORKSPACE_DEFAULT_MAX_PER_OWNER: z.coerce.number().int().default(-1),
+
+  /**
+   * Public-facing base URL of the API — used to build callback / IPN URLs
+   * passed to external gateways (SSLCommerz `ipn_url`, etc.). MUST be HTTPS
+   * in staging/production; defaults to localhost for dev.
+   */
+  PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;

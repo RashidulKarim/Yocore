@@ -13,10 +13,13 @@ import type { Request, Response, RequestHandler } from 'express';
 import {
   addGatewayRequestSchema,
   bootstrapRequestSchema,
+  createPlanRequestSchema,
   createProductRequestSchema,
+  listPlansQuerySchema,
   rotateApiSecretResponseSchema,
   rotateWebhookSecretResponseSchema,
   updateBillingConfigRequestSchema,
+  updatePlanRequestSchema,
   updateProductRequestSchema,
   updateProductStatusRequestSchema,
 } from '@yocore/types';
@@ -43,6 +46,13 @@ export interface AdminHandlers {
   addGateway: RequestHandler;
   listGateways: RequestHandler;
   removeGateway: RequestHandler;
+  // Plans (Flow D / AO)
+  createPlan: RequestHandler;
+  listPlans: RequestHandler;
+  getPlan: RequestHandler;
+  updatePlan: RequestHandler;
+  publishPlan: RequestHandler;
+  archivePlan: RequestHandler;
 }
 
 export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
@@ -250,6 +260,88 @@ export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
         actor: { type: 'super_admin', id: auth.userId },
       });
       res.status(204).end();
+    }),
+
+    // ── Plans (Flow D / AO) ─────────────────────────────────
+    createPlan: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const body = createPlanRequestSchema.parse(req.body);
+      const plan = await ctx.plan.create(productId, body, auth.userId);
+      await req.audit?.({
+        action: 'plan.created',
+        outcome: 'success',
+        productId,
+        resource: { type: 'billingPlan', id: plan.id },
+        metadata: { slug: plan.slug, amount: plan.amount, currency: plan.currency },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(201).json({ plan });
+    }),
+
+    listPlans: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const filter = listPlansQuerySchema.parse(req.query);
+      const plans = await ctx.plan.list(productId, filter);
+      res.status(200).json({ plans });
+    }),
+
+    getPlan: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const planId = req.params['planId'] ?? '';
+      const plan = await ctx.plan.get(productId, planId);
+      res.status(200).json({ plan });
+    }),
+
+    updatePlan: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const planId = req.params['planId'] ?? '';
+      const body = updatePlanRequestSchema.parse(req.body);
+      const plan = await ctx.plan.update(productId, planId, body);
+      await req.audit?.({
+        action: 'plan.updated',
+        outcome: 'success',
+        productId,
+        resource: { type: 'billingPlan', id: planId },
+        metadata: { fields: Object.keys(body) },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ plan });
+    }),
+
+    publishPlan: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const planId = req.params['planId'] ?? '';
+      const plan = await ctx.plan.publish(productId, planId);
+      await req.audit?.({
+        action: 'plan.published',
+        outcome: 'success',
+        productId,
+        resource: { type: 'billingPlan', id: planId },
+        metadata: { stripePriceId: plan.gatewayPriceIds.stripe },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ plan });
+    }),
+
+    archivePlan: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const planId = req.params['planId'] ?? '';
+      const result = await ctx.plan.archive(productId, planId);
+      await req.audit?.({
+        action: 'plan.archived',
+        outcome: 'success',
+        productId,
+        resource: { type: 'billingPlan', id: planId },
+        metadata: { affectedSubscriptions: result.affectedSubscriptions },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json(result);
     }),
   };
 }

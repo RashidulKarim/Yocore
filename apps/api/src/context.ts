@@ -49,6 +49,22 @@ import {
 } from './services/invitation.service.js';
 import { createProductService, type ProductService } from './services/product.service.js';
 import { createGatewayService, type GatewayService } from './services/gateway.service.js';
+import { createPlanService, type PlanService } from './services/plan.service.js';
+import {
+  createCheckoutService,
+  type CheckoutService,
+  type StripeApi,
+} from './services/checkout.service.js';
+import {
+  createStripeWebhookService,
+  type StripeWebhookService,
+  type StripeWebhookApi,
+} from './services/stripe-webhook.service.js';
+import {
+  createSslcommerzWebhookService,
+  type SslcommerzWebhookService,
+} from './services/sslcommerz-webhook.service.js';
+import type { SslcommerzGatewayApi } from './services/sslcommerz-api.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -77,6 +93,10 @@ export interface AppContext {
   invitation: InvitationService;
   product: ProductService;
   gateway: GatewayService;
+  plan: PlanService;
+  checkout: CheckoutService;
+  stripeWebhook: StripeWebhookService;
+  sslcommerzWebhook: SslcommerzWebhookService;
 }
 
 export interface CreateAppContextOptions {
@@ -88,6 +108,16 @@ export interface CreateAppContextOptions {
   auditStore?: AuditLogStore;
   /** Override gateway verifier (tests skip real HTTP). */
   gatewayVerify?: import('./services/gateway.service.js').VerifyFn;
+  /** Override Stripe price creator (tests skip real HTTP). */
+  stripeCreatePrice?: import('./services/plan.service.js').StripePriceCreateFn;
+  /** Override Stripe checkout/customer API (tests). */
+  stripeApi?: StripeApi;
+  /** Override Stripe webhook helper API (tests). */
+  stripeWebhookApi?: StripeWebhookApi;
+  /** Override SSLCommerz combined gateway adapter (tests). */
+  sslcommerzApi?: SslcommerzGatewayApi;
+  /** Override clock for webhook timestamp tolerance (tests). */
+  webhookNow?: () => Date;
 }
 
 export async function createAppContext(opts: CreateAppContextOptions = {}): Promise<AppContext> {
@@ -151,6 +181,22 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
   const gateway = createGatewayService(
     opts.gatewayVerify ? { verify: opts.gatewayVerify } : {},
   );
+  const plan = createPlanService({
+    redis,
+    ...(opts.stripeCreatePrice ? { stripeCreatePrice: opts.stripeCreatePrice } : {}),
+  });
+  const checkout = createCheckoutService({
+    redis,
+    ...(opts.stripeApi ? { stripeApi: opts.stripeApi } : {}),
+    ...(opts.sslcommerzApi ? { sslcommerzApi: opts.sslcommerzApi } : {}),
+  });
+  const stripeWebhook = createStripeWebhookService({
+    ...(opts.stripeWebhookApi ? { stripeApi: opts.stripeWebhookApi } : {}),
+    ...(opts.webhookNow ? { now: opts.webhookNow } : {}),
+  });
+  const sslcommerzWebhook = createSslcommerzWebhookService({
+    ...(opts.sslcommerzApi ? { sslcommerzApi: opts.sslcommerzApi } : {}),
+  });
 
   return {
     redis,
@@ -171,5 +217,9 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     invitation,
     product,
     gateway,
+    plan,
+    checkout,
+    stripeWebhook,
+    sslcommerzWebhook,
   };
 }

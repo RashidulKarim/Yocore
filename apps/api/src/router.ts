@@ -7,6 +7,9 @@ import {
 import { adminHandlerFactory } from './handlers/admin.handler.js';
 import { authHandlerFactory } from './handlers/auth.handler.js';
 import { workspaceHandlerFactory } from './handlers/workspace.handler.js';
+import { publicPlansHandlerFactory } from './handlers/public-plans.handler.js';
+import { billingHandlerFactory } from './handlers/billing.handler.js';
+import { webhookHandlerFactory } from './handlers/webhooks.handler.js';
 import { jwtAuthMiddleware } from './middleware/jwt-auth.js';
 import { auditLogMiddleware } from './middleware/audit-log.js';
 import type { AppContext } from './context.js';
@@ -80,6 +83,27 @@ export function buildRouter(opts: BuildRouterOptions): Router {
     requireJwt,
     admin.removeGateway,
   );
+
+  // ─── Admin: Plans (Phase 3.4 — Flow D / AO) ────────────────────
+  router.post('/v1/admin/products/:id/plans', requireJwt, admin.createPlan);
+  router.get('/v1/admin/products/:id/plans', requireJwt, admin.listPlans);
+  router.get('/v1/admin/products/:id/plans/:planId', requireJwt, admin.getPlan);
+  router.patch('/v1/admin/products/:id/plans/:planId', requireJwt, admin.updatePlan);
+  router.post('/v1/admin/products/:id/plans/:planId/publish', requireJwt, admin.publishPlan);
+  router.post('/v1/admin/products/:id/plans/:planId/archive', requireJwt, admin.archivePlan);
+
+  // ─── Public: Plans (no auth, cached 5min) ───────────────────────
+  const publicPlans = publicPlansHandlerFactory(ctx);
+  router.get('/v1/products/:slug/plans', publicPlans.listPublicPlans);
+
+  // ─── Billing: Checkout (Phase 3.4 Wave 2 — Flow J1) ─────────────
+  const billing = billingHandlerFactory(ctx);
+  router.post('/v1/billing/checkout', requireJwt, billing.checkout);
+
+  // ─── Webhooks (Phase 3.4 Wave 2 — Flow J1.6 / Wave 3 — Flow J4.8) ─
+  const webhooks = webhookHandlerFactory(ctx);
+  router.post('/v1/webhooks/stripe', webhooks.stripe);
+  router.post('/v1/webhooks/sslcommerz', webhooks.sslcommerz);
 
   // ─── MFA (authenticated) ────────────────────────────────────────────────
   router.post('/v1/auth/mfa/enrol', requireJwt, auth.mfaEnrolStart);

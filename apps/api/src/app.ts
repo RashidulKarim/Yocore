@@ -42,7 +42,17 @@ export function createApp(opts: CreateAppOptions): Express {
     }),
   );
 
-  app.use(express.json({ limit: '1mb' }));
+  // Capture raw body for webhook signature verification (Stripe etc.).
+  // We attach it via the JSON parser's `verify` callback so a single body
+  // pass works for both JSON-typed routes and raw-bytes-needing webhooks.
+  app.use(
+    express.json({
+      limit: '1mb',
+      verify: (req, _res, buf) => {
+        (req as unknown as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+      },
+    }),
+  );
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
   app.use(buildRouter({ ctx: opts.ctx }));
