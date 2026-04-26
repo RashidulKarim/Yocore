@@ -16,12 +16,12 @@ import * as userRepo from '../repos/user.repo.js';
 import * as productUserRepo from '../repos/product-user.repo.js';
 import * as workspaceRepo from '../repos/workspace.repo.js';
 import * as workspaceMemberRepo from '../repos/workspace-member.repo.js';
+import * as roleRepo from '../repos/role.repo.js';
 
 /**
- * Built-in OWNER role identifiers. Phase 3.2 will replace this with a
- * real Role lookup once roles are seeded per product.
+ * Built-in OWNER role identifiers. These platform rows are seeded on demand
+ * via `roleRepo.ensurePlatformRoles` so we never reference a non-existent id.
  */
-const OWNER_ROLE_ID = 'role_owner';
 const OWNER_ROLE_SLUG = 'OWNER';
 
 export interface FinalizeOnboardingInput {
@@ -85,11 +85,14 @@ export async function finalizeOnboarding(
     ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
   });
 
+  const platformRoles = await roleRepo.ensurePlatformRoles(input.productId);
+  const ownerRole = platformRoles.OWNER;
+
   await workspaceMemberRepo.createMember({
     workspaceId: workspace._id,
     productId: input.productId,
     userId: input.userId,
-    roleId: OWNER_ROLE_ID,
+    roleId: ownerRole._id,
     roleSlug: OWNER_ROLE_SLUG,
     addedBy: null,
   });

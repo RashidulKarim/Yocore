@@ -34,6 +34,21 @@ import {
   type EmailPrefsService,
 } from './services/email-prefs.service.js';
 import { createPkceService, type PkceService } from './services/pkce.service.js';
+import {
+  createPermissionService,
+  type PermissionService,
+} from './services/permission.service.js';
+import {
+  createWorkspaceService,
+  type WorkspaceService,
+} from './services/workspace.service.js';
+import { createMemberService, type MemberService } from './services/member.service.js';
+import {
+  createInvitationService,
+  type InvitationService,
+} from './services/invitation.service.js';
+import { createProductService, type ProductService } from './services/product.service.js';
+import { createGatewayService, type GatewayService } from './services/gateway.service.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -56,6 +71,12 @@ export interface AppContext {
   emailChange: EmailChangeService;
   emailPrefs: EmailPrefsService;
   pkce: PkceService;
+  permission: PermissionService;
+  workspace: WorkspaceService;
+  member: MemberService;
+  invitation: InvitationService;
+  product: ProductService;
+  gateway: GatewayService;
 }
 
 export interface CreateAppContextOptions {
@@ -65,6 +86,8 @@ export interface CreateAppContextOptions {
   keyring?: JwtKeyring;
   /** Override the audit store (tests pass an in-memory impl). */
   auditStore?: AuditLogStore;
+  /** Override gateway verifier (tests skip real HTTP). */
+  gatewayVerify?: import('./services/gateway.service.js').VerifyFn;
 }
 
 export async function createAppContext(opts: CreateAppContextOptions = {}): Promise<AppContext> {
@@ -102,6 +125,33 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
   });
   const pkce = createPkceService({ auth });
 
+  const permission = createPermissionService({ redis });
+  const workspace = createWorkspaceService({
+    redis,
+    keyring,
+    accessTtlSeconds: env.JWT_ACCESS_TTL_SECONDS,
+    defaultMaxWorkspacesPerOwner: env.WORKSPACE_DEFAULT_MAX_PER_OWNER,
+    markSessionActive: (jti, ttl) => sessionStore.markActive(jti, ttl),
+    markSessionRevoked: (jti) => sessionStore.markRevoked(jti),
+    invalidatePermissions: (productId, userId, workspaceId) =>
+      permission.invalidate(productId, userId, workspaceId),
+  });
+  const member = createMemberService({
+    invalidatePermissions: (productId, userId, workspaceId) =>
+      permission.invalidate(productId, userId, workspaceId),
+  });
+  const invitation = createInvitationService({
+    auth,
+    defaultFromAddress: env.EMAIL_FROM_DEFAULT,
+    invalidatePermissions: (productId, userId, workspaceId) =>
+      permission.invalidate(productId, userId, workspaceId),
+  });
+
+  const product = createProductService();
+  const gateway = createGatewayService(
+    opts.gatewayVerify ? { verify: opts.gatewayVerify } : {},
+  );
+
   return {
     redis,
     keyring,
@@ -115,5 +165,11 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     emailChange,
     emailPrefs,
     pkce,
+    permission,
+    workspace,
+    member,
+    invitation,
+    product,
+    gateway,
   };
 }

@@ -116,3 +116,27 @@ export async function revokeAllForUser(
   );
   return res.modifiedCount;
 }
+
+/**
+ * Atomically swap an active session's `jwtId` (and optionally `workspaceId`)
+ * — used by Flow L3 workspace switching so the new access token is bound to
+ * the chosen workspace and the previous jti is no longer accepted by the
+ * Redis session-store check.
+ */
+export async function swapJti(input: {
+  oldJti: string;
+  newJti: string;
+  workspaceId: string | null;
+}): Promise<boolean> {
+  const res = await Session.updateOne(
+    { jwtId: input.oldJti, revokedAt: null },
+    {
+      $set: {
+        jwtId: input.newJti,
+        workspaceId: input.workspaceId,
+        lastUsedAt: new Date(),
+      },
+    },
+  );
+  return res.modifiedCount === 1;
+}

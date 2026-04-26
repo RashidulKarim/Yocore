@@ -66,6 +66,13 @@ const envSchema = z.object({
 
   // Argon2
   ARGON2_POOL_SIZE: z.coerce.number().int().positive().max(32).default(4),
+
+  /**
+   * Default cap on workspaces a single user can OWN within one product when
+   * no subscription quota override is in effect (Flow L1, Phase 3.2 stub).
+   * `-1` = unlimited. Phase 3.4 swaps this for a plan-driven check.
+   */
+  WORKSPACE_DEFAULT_MAX_PER_OWNER: z.coerce.number().int().default(-1),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -201,20 +201,20 @@
 - [x] Email queue worker + email events handler (console driver; Resend/SES drivers Phase 5)
 
 ### 3.2 Workspaces, Members, Roles, Permissions
-- [ ] **Flow L** — Workspace CRUD + switcher
-- [ ] **Flow M** — Invitations (existing-user + new-user paths, 72h TTL)
-- [ ] **Flow Z** — Workspace ownership transfer (re-auth required)
-- [ ] **Flow AA** — Voluntary workspace deletion + 30d grace
-- [ ] Roles seed (OWNER/ADMIN/MEMBER/VIEWER) per product
-- [ ] `POST /v1/permissions/check` (Redis cache 60s + pub/sub invalidation)
-- [ ] `GET /v1/permissions/catalog`
+- [x] **Flow L** — Workspace CRUD + switcher
+- [x] **Flow M** — Invitations (existing-user + new-user paths, 72h TTL)
+- [x] **Flow Z** — Workspace ownership transfer (re-auth required)
+- [x] **Flow AA** — Voluntary workspace deletion + 30d grace
+- [x] Roles seed (OWNER/ADMIN/MEMBER/VIEWER) per product
+- [x] `POST /v1/permissions/check` (Redis cache 60s + pub/sub invalidation)
+- [x] `GET /v1/permissions/catalog`
 
 ### 3.3 Products & Gateway Config
-- [ ] **Flow B** — Product registry (create, activate, secret rotation)
-- [ ] **Flow AJ** — Webhook secret rotation w/ 24h grace
-- [ ] **Flow C1/C2** — Stripe + SSLCommerz add/verify (encrypted credentials)
-- [ ] **Flow C3/C4** — PayPal + Paddle schema placeholders (Coming Soon UI)
-- [ ] **Flow C5** — Billing config (gateway routing per currency)
+- [x] **Flow B** — Product registry (create, activate, secret rotation)
+- [x] **Flow AJ** — Webhook secret rotation w/ 24h grace
+- [x] **Flow C1/C2** — Stripe + SSLCommerz add/verify (encrypted credentials)
+- [x] **Flow C3/C4** — PayPal + Paddle schema placeholders (Coming Soon UI)
+- [x] **Flow C5** — Billing config (gateway routing per currency)
 
 ### 3.4 Plans, Subscriptions, Checkout
 - [ ] **Flow D** — Plan CRUD + publish + Stripe price sync
@@ -272,9 +272,9 @@
 ### 4.1 `packages/types` (build first; consumed by everything)
 - [x] `src/errors/error-codes.ts` — full enum
 - [x] `src/errors/app-error.ts`
-- [ ] `src/schemas/auth.ts` (signup, signin, refresh, logout, etc.)
+- [x] `src/schemas/auth.ts` (signup, signin, refresh, logout, etc.)
 - [ ] `src/schemas/users.ts`
-- [ ] `src/schemas/workspaces.ts`
+- [x] `src/schemas/workspaces.ts`
 - [ ] `src/schemas/billing.ts`
 - [ ] `src/schemas/bundles.ts`
 - [ ] `src/schemas/admin.ts`

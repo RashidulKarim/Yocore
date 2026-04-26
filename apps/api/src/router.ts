@@ -6,6 +6,7 @@ import {
 } from './handlers/health.handler.js';
 import { adminHandlerFactory } from './handlers/admin.handler.js';
 import { authHandlerFactory } from './handlers/auth.handler.js';
+import { workspaceHandlerFactory } from './handlers/workspace.handler.js';
 import { jwtAuthMiddleware } from './middleware/jwt-auth.js';
 import { auditLogMiddleware } from './middleware/audit-log.js';
 import type { AppContext } from './context.js';
@@ -55,11 +56,61 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.get('/v1/users/me/email-preferences', requireJwt, auth.emailPrefsGet);
   router.patch('/v1/users/me/email-preferences', requireJwt, auth.emailPrefsPatch);
 
+  // ─── Admin: Products & Gateways (Phase 3.3, SUPER_ADMIN) ────────────────
+  router.post('/v1/admin/products', requireJwt, admin.createProduct);
+  router.get('/v1/admin/products', requireJwt, admin.listProducts);
+  router.get('/v1/admin/products/:id', requireJwt, admin.getProduct);
+  router.patch('/v1/admin/products/:id', requireJwt, admin.updateProduct);
+  router.patch('/v1/admin/products/:id/status', requireJwt, admin.setProductStatus);
+  router.post('/v1/admin/products/:id/rotate-api-secret', requireJwt, admin.rotateApiSecret);
+  router.post(
+    '/v1/admin/products/:id/rotate-webhook-secret',
+    requireJwt,
+    admin.rotateWebhookSecret,
+  );
+  router.patch(
+    '/v1/admin/products/:id/billing-config',
+    requireJwt,
+    admin.updateBillingConfig,
+  );
+  router.post('/v1/admin/products/:id/gateways', requireJwt, admin.addGateway);
+  router.get('/v1/admin/products/:id/gateways', requireJwt, admin.listGateways);
+  router.delete(
+    '/v1/admin/products/:id/gateways/:gwId',
+    requireJwt,
+    admin.removeGateway,
+  );
+
   // ─── MFA (authenticated) ────────────────────────────────────────────────
   router.post('/v1/auth/mfa/enrol', requireJwt, auth.mfaEnrolStart);
   router.post('/v1/auth/mfa/enrol/verify', requireJwt, auth.mfaEnrolVerify);
   router.get('/v1/auth/mfa/status', requireJwt, auth.mfaStatus);
   router.post('/v1/auth/mfa/recovery-codes', requireJwt, auth.mfaRegenerateRecovery);
+
+  // ─── Workspaces / Members / Invitations / Permissions (Phase 3.2) ──────
+  const ws = workspaceHandlerFactory(ctx);
+  router.post('/v1/workspaces', requireJwt, ws.create);
+  router.get('/v1/workspaces', requireJwt, ws.list);
+  router.get('/v1/workspaces/:id', requireJwt, ws.get);
+  router.patch('/v1/workspaces/:id', requireJwt, ws.update);
+  router.delete('/v1/workspaces/:id', requireJwt, ws.delete);
+  router.post('/v1/workspaces/:id/restore', requireJwt, ws.restore);
+  router.post('/v1/workspaces/:id/transfer-ownership', requireJwt, ws.transferOwnership);
+  router.post('/v1/auth/switch-workspace', requireJwt, ws.switchWorkspace);
+
+  router.get('/v1/workspaces/:id/members', requireJwt, ws.listMembers);
+  router.patch('/v1/workspaces/:id/members/:userId', requireJwt, ws.changeMemberRole);
+  router.delete('/v1/workspaces/:id/members/:userId', requireJwt, ws.removeMember);
+
+  router.post('/v1/workspaces/:id/invitations', requireJwt, ws.createInvitation);
+  router.get('/v1/workspaces/:id/invitations', requireJwt, ws.listInvitations);
+  router.delete('/v1/workspaces/:id/invitations/:invId', requireJwt, ws.revokeInvitation);
+  router.get('/v1/invitations/preview', ws.previewInvitation);
+  router.post('/v1/invitations/accept', requireJwt, ws.acceptInvitation);
+  router.post('/v1/invitations/accept-new', ws.acceptInvitationNew);
+
+  router.post('/v1/permissions/check', requireJwt, ws.permissionsCheck);
+  router.get('/v1/permissions/catalog', requireJwt, ws.permissionsCatalog);
 
   return router;
 }

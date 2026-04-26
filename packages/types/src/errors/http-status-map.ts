@@ -44,11 +44,13 @@ export const httpStatusMap: Record<ErrorCode, number> = {
   [ErrorCode.VALIDATION_FAILED]: 422,
   // Resource
   [ErrorCode.BUNDLE_NOT_FOUND]: 404,
+  [ErrorCode.GATEWAY_NOT_FOUND]: 404,
   [ErrorCode.INVITATION_ALREADY_USED]: 409,
   [ErrorCode.INVITATION_EXPIRED]: 410,
   [ErrorCode.INVITATION_NOT_FOUND]: 404,
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.PLAN_NOT_FOUND]: 404,
+  [ErrorCode.PRODUCT_NOT_FOUND]: 404,
   [ErrorCode.RESOURCE_CONFLICT]: 409,
   [ErrorCode.SUBSCRIPTION_NOT_FOUND]: 404,
   [ErrorCode.USER_NOT_FOUND]: 404,
@@ -79,6 +81,8 @@ export const httpStatusMap: Record<ErrorCode, number> = {
   [ErrorCode.BILLING_SUBSCRIPTION_NOT_ACTIVE]: 409,
   [ErrorCode.BILLING_TRIAL_INELIGIBLE]: 409,
   [ErrorCode.BILLING_USAGE_HARD_CAP_EXCEEDED]: 402,
+  [ErrorCode.GATEWAY_CREDENTIALS_INVALID]: 422,
+  [ErrorCode.GATEWAY_VERIFICATION_FAILED]: 502,
   // Webhooks
   [ErrorCode.WEBHOOK_EVENT_DUPLICATE]: 200, // intentional: dedup short-circuits to 200
   [ErrorCode.WEBHOOK_PAYLOAD_INVALID]: 422,
