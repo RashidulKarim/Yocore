@@ -107,41 +107,41 @@
 - [x] `src/lib/correlation-id.ts` (cls-hooked context)
 
 ### 2.3 DB models (Mongoose) — all 23+ collections
-- [ ] `src/db/models/User.ts`
-- [ ] `src/db/models/Session.ts`
-- [ ] `src/db/models/AuthToken.ts`
-- [ ] `src/db/models/Product.ts`
-- [ ] `src/db/models/ProductUser.ts`
-- [ ] `src/db/models/Workspace.ts`
-- [ ] `src/db/models/WorkspaceMember.ts`
-- [ ] `src/db/models/Role.ts`
-- [ ] `src/db/models/BillingPlan.ts`
-- [ ] `src/db/models/Subscription.ts`
-- [ ] `src/db/models/PaymentGateway.ts`
-- [ ] `src/db/models/Invitation.ts`
-- [ ] `src/db/models/WebhookDelivery.ts`
-- [ ] `src/db/models/AuditLog.ts`
-- [ ] `src/db/models/Bundle.ts`
-- [ ] `src/db/models/WebhookEventProcessed.ts`
-- [ ] `src/db/models/CronLock.ts`
-- [ ] `src/db/models/MfaFactor.ts`
-- [ ] `src/db/models/DataExportJob.ts`
-- [ ] `src/db/models/DeletionRequest.ts`
-- [ ] `src/db/models/JwtSigningKey.ts`
-- [ ] `src/db/models/EmailQueue.ts`
-- [ ] `src/db/models/EmailEvent.ts`
-- [ ] `src/db/models/Coupon.ts` (v1.5)
-- [ ] `src/db/models/CouponRedemption.ts` (v1.5)
-- [ ] `src/db/models/Invoice.ts` (v1.5)
-- [ ] `src/db/models/AuditLogExportJob.ts` (v1.5)
-- [ ] `src/db/models/TosVersion.ts` (v1.5)
-- [ ] `src/db/models/MfaRecoveryRequest.ts` (v1.5)
-- [ ] `src/db/models/IdempotencyKey.ts` (v1.5)
-- [ ] `src/db/models/UsageRecord.ts` (v1.7)
-- [ ] `src/db/models/CustomerTaxProfile.ts` (v1.7)
-- [ ] `src/db/models/PaymentMethodCache.ts` (v1.7)
-- [ ] `src/db/models/SuperAdminConfig.ts` (v1.7)
-- [ ] `src/db/index.ts` (exports + index registration)
+- [x] `src/db/models/User.ts`
+- [x] `src/db/models/Session.ts`
+- [x] `src/db/models/AuthToken.ts`
+- [x] `src/db/models/Product.ts`
+- [x] `src/db/models/ProductUser.ts`
+- [x] `src/db/models/Workspace.ts`
+- [x] `src/db/models/WorkspaceMember.ts`
+- [x] `src/db/models/Role.ts`
+- [x] `src/db/models/BillingPlan.ts`
+- [x] `src/db/models/Subscription.ts`
+- [x] `src/db/models/PaymentGateway.ts`
+- [x] `src/db/models/Invitation.ts`
+- [x] `src/db/models/WebhookDelivery.ts`
+- [x] `src/db/models/AuditLog.ts`
+- [x] `src/db/models/Bundle.ts`
+- [x] `src/db/models/WebhookEventProcessed.ts`
+- [x] `src/db/models/CronLock.ts`
+- [x] `src/db/models/MfaFactor.ts`
+- [x] `src/db/models/DataExportJob.ts`
+- [x] `src/db/models/DeletionRequest.ts`
+- [x] `src/db/models/JwtSigningKey.ts`
+- [x] `src/db/models/EmailQueue.ts`
+- [x] `src/db/models/EmailEvent.ts`
+- [x] `src/db/models/Coupon.ts` (v1.5)
+- [x] `src/db/models/CouponRedemption.ts` (v1.5)
+- [x] `src/db/models/Invoice.ts` (v1.5)
+- [x] `src/db/models/AuditLogExportJob.ts` (v1.5)
+- [x] `src/db/models/TosVersion.ts` (v1.5)
+- [x] `src/db/models/MfaRecoveryRequest.ts` (v1.5)
+- [x] `src/db/models/IdempotencyKey.ts` (v1.5)
+- [x] `src/db/models/UsageRecord.ts` (v1.7)
+- [x] `src/db/models/CustomerTaxProfile.ts` (v1.7)
+- [x] `src/db/models/PaymentMethodCache.ts` (v1.7)
+- [x] `src/db/models/SuperAdminConfig.ts` (v1.7)
+- [x] `src/db/index.ts` (exports + index registration)
 - [ ] `src/db/migrations/` (migrate-mongo setup)
 
 ### 2.4 Cross-cutting middleware (in chain order)
