@@ -1,0 +1,27 @@
+{
+  "name": "@yocore/test-utils",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@yocore/types": "workspace:*",
+    "mongodb-memory-server": "^10.1.2",
+    "nock": "^13.5.5",
+    "supertest": "^7.0.0",
+    "ioredis-mock": "^8.9.0",
+    "@sinonjs/fake-timers": "^13.0.2"
+  },
+  "devDependencies": {
+    "@types/supertest": "^6.0.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}

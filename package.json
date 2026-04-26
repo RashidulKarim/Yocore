@@ -37,5 +37,8 @@
     "*.{json,yml,yaml,md}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "pnpm": "^10.33.2"
   }
 }

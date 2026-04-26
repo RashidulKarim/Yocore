@@ -107,29 +107,29 @@
 - [x] `src/lib/correlation-id.ts` (cls-hooked context)
 
 ### 2.3 DB models (Mongoose) — all 23+ collections
-- [x] `src/db/models/User.ts`
-- [x] `src/db/models/Session.ts`
-- [x] `src/db/models/AuthToken.ts`
-- [x] `src/db/models/Product.ts`
-- [x] `src/db/models/ProductUser.ts`
-- [x] `src/db/models/Workspace.ts`
-- [x] `src/db/models/WorkspaceMember.ts`
-- [x] `src/db/models/Role.ts`
-- [x] `src/db/models/BillingPlan.ts`
-- [x] `src/db/models/Subscription.ts`
-- [x] `src/db/models/PaymentGateway.ts`
-- [x] `src/db/models/Invitation.ts`
-- [x] `src/db/models/WebhookDelivery.ts`
-- [x] `src/db/models/AuditLog.ts`
-- [x] `src/db/models/Bundle.ts`
-- [x] `src/db/models/WebhookEventProcessed.ts`
-- [x] `src/db/models/CronLock.ts`
-- [x] `src/db/models/MfaFactor.ts`
-- [x] `src/db/models/DataExportJob.ts`
-- [x] `src/db/models/DeletionRequest.ts`
-- [x] `src/db/models/JwtSigningKey.ts`
-- [x] `src/db/models/EmailQueue.ts`
-- [x] `src/db/models/EmailEvent.ts`
+- [ ] `src/db/models/User.ts`
+- [ ] `src/db/models/Session.ts`
+- [ ] `src/db/models/AuthToken.ts`
+- [ ] `src/db/models/Product.ts`
+- [ ] `src/db/models/ProductUser.ts`
+- [ ] `src/db/models/Workspace.ts`
+- [ ] `src/db/models/WorkspaceMember.ts`
+- [ ] `src/db/models/Role.ts`
+- [ ] `src/db/models/BillingPlan.ts`
+- [ ] `src/db/models/Subscription.ts`
+- [ ] `src/db/models/PaymentGateway.ts`
+- [ ] `src/db/models/Invitation.ts`
+- [ ] `src/db/models/WebhookDelivery.ts`
+- [ ] `src/db/models/AuditLog.ts`
+- [ ] `src/db/models/Bundle.ts`
+- [ ] `src/db/models/WebhookEventProcessed.ts`
+- [ ] `src/db/models/CronLock.ts`
+- [ ] `src/db/models/MfaFactor.ts`
+- [ ] `src/db/models/DataExportJob.ts`
+- [ ] `src/db/models/DeletionRequest.ts`
+- [ ] `src/db/models/JwtSigningKey.ts`
+- [ ] `src/db/models/EmailQueue.ts`
+- [ ] `src/db/models/EmailEvent.ts`
 - [ ] `src/db/models/Coupon.ts` (v1.5)
 - [ ] `src/db/models/CouponRedemption.ts` (v1.5)
 - [ ] `src/db/models/Invoice.ts` (v1.5)
@@ -141,26 +141,26 @@
 - [ ] `src/db/models/CustomerTaxProfile.ts` (v1.7)
 - [ ] `src/db/models/PaymentMethodCache.ts` (v1.7)
 - [ ] `src/db/models/SuperAdminConfig.ts` (v1.7)
-- [x] `src/db/index.ts` (exports + index registration)
+- [ ] `src/db/index.ts` (exports + index registration)
 - [ ] `src/db/migrations/` (migrate-mongo setup)
 
 ### 2.4 Cross-cutting middleware (in chain order)
-- [x] `src/middleware/correlation-id.ts`
-- [x] `src/middleware/security-headers.ts` (helmet config)
-- [x] `src/middleware/cors.ts` (per-product allowlist)
-- [x] `src/middleware/rate-limit.ts` (Redis token bucket + headers)
-- [x] `src/middleware/api-key.ts` (Flow E)
-- [x] `src/middleware/jwt-auth.ts` (dual-check: Redis + Mongo fallback)
-- [x] `src/middleware/idempotency.ts` (Redis cache + Mongo)
-- [x] `src/middleware/audit-log.ts` (auto-fire on state changes)
-- [x] `src/middleware/error-handler.ts` (final error mapper)
-- [x] `src/middleware/not-found.ts`
+- [ ] `src/middleware/correlation-id.ts`
+- [ ] `src/middleware/security-headers.ts` (helmet config)
+- [ ] `src/middleware/cors.ts` (per-product allowlist)
+- [ ] `src/middleware/rate-limit.ts` (Redis token bucket + headers)
+- [ ] `src/middleware/api-key.ts` (Flow E)
+- [ ] `src/middleware/jwt-auth.ts` (dual-check: Redis + Mongo fallback)
+- [ ] `src/middleware/idempotency.ts` (Redis cache + Mongo)
+- [ ] `src/middleware/audit-log.ts` (auto-fire on state changes)
+- [ ] `src/middleware/error-handler.ts` (final error mapper)
+- [ ] `src/middleware/not-found.ts`
 
 ### 2.5 Repos + services scaffolding
-- [x] `src/repos/` directory + base repo pattern
-- [x] `src/services/` directory + base service pattern
-- [x] `src/handlers/` directory + base handler pattern
-- [x] `src/router.ts` (mounts all routes)
+- [ ] `src/repos/` directory + base repo pattern
+- [ ] `src/services/` directory + base service pattern
+- [ ] `src/handlers/` directory + base handler pattern
+- [ ] `src/router.ts` (mounts all routes)
 
 ### 2.6 Smoke test
 - [ ] `GET /v1/health` returns 200
@@ -270,8 +270,8 @@
 ## Phase 4 — Frontends, SDK, Demo, E2E
 
 ### 4.1 `packages/types` (build first; consumed by everything)
-- [ ] `src/errors/error-codes.ts` — full enum
-- [ ] `src/errors/app-error.ts`
+- [x] `src/errors/error-codes.ts` — full enum
+- [x] `src/errors/app-error.ts`
 - [ ] `src/schemas/auth.ts` (signup, signin, refresh, logout, etc.)
 - [ ] `src/schemas/users.ts`
 - [ ] `src/schemas/workspaces.ts`
@@ -370,5 +370,6 @@
 ## Tracking notes
 
 - **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 0 + Phase 1 (this commit)
+- **Currently in-progress:** Phase 2 — apps/api foundation (libs + middleware + models)
 - **Next milestone:** Phase 2 foundation complete + smoke test green
+- **Last completed wave:** Phase 0 docs + Phase 1.1/1.2/1.3 scaffolds + packages/types ErrorCode + AppError + tests

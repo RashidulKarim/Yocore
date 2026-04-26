@@ -1,0 +1,19 @@
+{
+  "name": "@yocore/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    "./eslint": "./eslint-preset.cjs",
+    "./vitest": "./vitest.preset.ts"
+  },
+  "scripts": {
+    "lint": "echo 'no lint for config presets'",
+    "typecheck": "echo 'no typecheck for config presets'",
+    "test": "echo 'no tests for config presets'"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.1"
+  }
+}
