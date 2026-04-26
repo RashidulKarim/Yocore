@@ -19,14 +19,16 @@ import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { buildRouter } from './router.js';
+import type { AppContext } from './context.js';
 
 export interface CreateAppOptions {
+  ctx: AppContext;
   trustProxy?: boolean | number | string;
   /** Global CORS allow-list (used by product-less endpoints: health, hosted auth). */
   globalAllowOrigins?: readonly string[];
 }
 
-export function createApp(opts: CreateAppOptions = {}): Express {
+export function createApp(opts: CreateAppOptions): Express {
   const app = express();
 
   if (opts.trustProxy !== undefined) app.set('trust proxy', opts.trustProxy);
@@ -43,7 +45,7 @@ export function createApp(opts: CreateAppOptions = {}): Express {
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-  app.use(buildRouter());
+  app.use(buildRouter({ ctx: opts.ctx }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

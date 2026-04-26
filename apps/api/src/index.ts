@@ -4,13 +4,15 @@ import { connectMongo, disconnectMongo } from './config/db.js';
 import { getRedis, disconnectRedis } from './config/redis.js';
 import { destroyAwsClients } from './config/aws.js';
 import { logger } from './lib/logger.js';
+import { createAppContext } from './context.js';
 
 async function bootstrap(): Promise<void> {
   await connectMongo();
   // Touch redis to fail fast if misconfigured
   getRedis();
 
-  const app = createApp({ trustProxy: 1 });
+  const ctx = await createAppContext();
+  const app = createApp({ ctx, trustProxy: 1 });
   const server = app.listen(env.PORT, () => {
     logger.info({ event: 'http.listening', port: env.PORT }, `API listening on :${env.PORT}`);
   });

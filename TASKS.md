@@ -183,22 +183,22 @@
 > 9. OpenAPI registration
 
 ### 3.1 Auth & Identity
-- [ ] **Flow A** — Super Admin bootstrap + signin (`POST /v1/admin/bootstrap`, `POST /v1/auth/signin`)
-- [ ] **Flow A1b/c, V** — Super Admin TOTP enroll + verify + recovery codes
-- [ ] **Flow F** — End-user signup (constant-time response, FIX-AUTH-TIMING)
-- [ ] **Flow F10** — Email verification (`GET /v1/auth/verify-email`)
-- [ ] **Flow F11/12** — Auto-login + finalize onboarding
-- [ ] **Flow H1** — Signin with lockout + per-product credentials
-- [ ] **Flow H2** — Refresh token rotation + family theft detection
-- [ ] **Flow H3** — Logout single + logout-all
-- [ ] **Flow I** — Cross-product join (same email, second product)
-- [ ] **Flow O** — Forgot password + reset
-- [ ] **Flow P** — Email change + global session revoke
-- [ ] **Flow AB** — End-user MFA enroll + signin + recovery
-- [ ] **Flow AH** — New-device alert email
-- [ ] **Flow U** — Hosted Auth: `/authorize` + `/exchange` (PKCE)
-- [ ] **Flow AI** — Email preferences + RFC 8058 unsubscribe
-- [ ] Email queue worker + email events handler (Resend/SES)
+- [x] **Flow A** — Super Admin bootstrap + signin (`POST /v1/admin/bootstrap`, `POST /v1/auth/signin`)
+- [x] **Flow A1b/c, V** — Super Admin TOTP enroll + verify + recovery codes
+- [x] **Flow F** — End-user signup (constant-time response, FIX-AUTH-TIMING)
+- [x] **Flow F10** — Email verification (`GET /v1/auth/verify-email`)
+- [x] **Flow F11/12** — Auto-login + finalize onboarding
+- [x] **Flow H1** — Signin with lockout + per-product credentials
+- [x] **Flow H2** — Refresh token rotation + family theft detection
+- [x] **Flow H3** — Logout single + logout-all
+- [x] **Flow I** — Cross-product join (same email, second product)
+- [x] **Flow O** — Forgot password + reset
+- [x] **Flow P** — Email change + global session revoke
+- [x] **Flow AB** — End-user MFA enroll + signin + recovery
+- [x] **Flow AH** — New-device alert email
+- [x] **Flow U** — Hosted Auth: `/authorize` + `/exchange` (PKCE) — `/exchange` only; `/authorize` lives in `apps/auth-web`
+- [x] **Flow AI** — Email preferences + RFC 8058 unsubscribe
+- [x] Email queue worker + email events handler (console driver; Resend/SES drivers Phase 5)
 
 ### 3.2 Workspaces, Members, Roles, Permissions
 - [ ] **Flow L** — Workspace CRUD + switcher

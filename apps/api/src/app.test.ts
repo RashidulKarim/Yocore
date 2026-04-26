@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from './app.js';
+import { createNoopAppContext } from '../test/test-context.js';
 
 describe('createApp smoke', () => {
-  const app = createApp();
+  const app = createApp({ ctx: createNoopAppContext() });
 
   it('GET /v1/health returns 200 with status ok', async () => {
     const res = await request(app).get('/v1/health');

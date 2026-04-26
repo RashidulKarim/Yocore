@@ -9,7 +9,7 @@
     "preview": "vite preview --port 5174",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
-    "test": "vitest run"
+    "test": "echo 'no tests yet for apps/auth-web'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

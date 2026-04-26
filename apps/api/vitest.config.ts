@@ -8,6 +8,7 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
+    isolate: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],

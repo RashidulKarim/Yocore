@@ -29,7 +29,7 @@ const sessionSchema = new Schema(
     revokedAt: { type: Date, default: null },
     revokedReason: {
       type: String,
-      enum: ['user_logout', 'admin', 'refresh_reuse', 'password_change', 'mfa_reset', null],
+      enum: ['user_logout', 'admin', 'refresh_reuse', 'password_change', 'mfa_reset', 'rotated', null],
       default: null,
     },
   },

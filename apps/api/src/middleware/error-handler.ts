@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { AppError, ErrorCode, httpStatusFor, isAppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
@@ -13,7 +14,11 @@ export function errorHandler(
   const correlationId = req.correlationId;
   const appErr = isAppError(err)
     ? err
-    : AppError.from(err, ErrorCode.INTERNAL_ERROR);
+    : err instanceof ZodError
+      ? new AppError(ErrorCode.VALIDATION_FAILED, 'Request validation failed', {
+          details: err.flatten(),
+        })
+      : AppError.from(err, ErrorCode.INTERNAL_ERROR);
 
   const status = httpStatusFor(appErr.code);
 

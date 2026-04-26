@@ -30,6 +30,12 @@ const envSchema = z.object({
   // Bootstrap
   BOOTSTRAP_SECRET: z.string().min(32),
 
+  /** HMAC secret used for signed unsubscribe tokens (Flow AI / RFC 8058). */
+  EMAIL_UNSUBSCRIBE_SECRET: z
+    .string()
+    .min(32)
+    .default('insecure-default-replace-in-production-12345678'),
+
   // Super Admin IP allowlist (comma-separated CIDRs)
   SUPER_ADMIN_IP_ALLOWLIST: z.string().default(''),
   SUPER_ADMIN_IP_ALLOWLIST_BYPASS: z

@@ -26,7 +26,9 @@ export const httpStatusMap: Record<ErrorCode, number> = {
   [ErrorCode.AUTH_PASSWORD_POLICY_VIOLATION]: 422,
   [ErrorCode.AUTH_PKCE_VERIFIER_MISMATCH]: 400,
   [ErrorCode.AUTH_REFRESH_REUSED]: 401,
+  [ErrorCode.AUTH_TOKEN_EXPIRED]: 410,
   [ErrorCode.AUTH_TOKEN_REVOKED]: 401,
+  [ErrorCode.AUTH_ONBOARDING_ALREADY_COMPLETE]: 409,
   // API key
   [ErrorCode.APIKEY_INVALID]: 401,
   [ErrorCode.APIKEY_MISSING]: 401,

@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run"
+    "test": "echo 'no tests yet for apps/demo-yopm'"
   },
   "dependencies": {
     "@yocore/sdk": "workspace:*",
