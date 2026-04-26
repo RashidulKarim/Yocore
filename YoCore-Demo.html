@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YoCore — Live Demo (localStorage)</title>
+<style>
+/* ═══════════════════════════════════════════════
+   YoCore Demo — Single-file SPA, localStorage backend
+   ═══════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;font-size:14px;line-height:1.5}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:14px}
+
+/* ── LAYOUT ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;min-width:240px;background:#161b22;border-right:1px solid #21262d;display:flex;flex-direction:column;padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar.hidden{display:none}
+.brand{padding:0 18px 18px;border-bottom:1px solid #21262d;margin-bottom:14px}
+.brand-logo{font-size:18px;font-weight:800;color:#58a6ff;letter-spacing:-0.5px}
+.brand-sub{font-size:10px;color:#484f58;margin-top:2px;text-transform:uppercase;letter-spacing:1.5px}
+.nav-section{padding:12px 18px 6px;font-size:10px;color:#484f58;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;color:#8b949e;cursor:pointer;font-size:13px;border-left:3px solid transparent;transition:all .12s}
+.nav-item:hover{background:#1c2128;color:#c9d1d9}
+.nav-item.active{background:#1c2128;color:#58a6ff;border-left-color:#58a6ff;font-weight:600}
+.nav-item .ico{width:16px;text-align:center;opacity:.7}
+.sidebar-footer{margin-top:auto;padding:14px 18px;border-top:1px solid #21262d;font-size:11px;color:#484f58}
+.sidebar-user{padding:10px 14px;background:#0d1117;border:1px solid #21262d;border-radius:8px;margin:8px 14px}
+.sidebar-user .uname{font-size:12px;font-weight:600;color:#c9d1d9}
+.sidebar-user .uemail{font-size:10px;color:#484f58;margin-top:2px}
+.sidebar-user .urole{display:inline-block;margin-top:6px;font-size:9px;font-weight:700;color:#3fb950;background:#0e2a1d;padding:2px 6px;border-radius:4px;letter-spacing:.5px}
+.btn-logout{width:100%;margin-top:6px;padding:5px;font-size:11px;color:#f85149;background:transparent;border:1px solid #21262d;border-radius:5px}
+.btn-logout:hover{background:#270b0b;border-color:#6e1a1a}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:#0d1117;border-bottom:1px solid #21262d;position:sticky;top:0;z-index:10}
+.topbar-title{font-size:18px;font-weight:700;color:#c9d1d9}
+.topbar-sub{font-size:12px;color:#484f58;margin-top:2px}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.content{padding:28px;max-width:1280px;width:100%;margin:0 auto;flex:1}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;border:1px solid transparent;transition:all .12s;cursor:pointer}
+.btn-primary{background:#238636;color:#fff;border-color:#238636}
+.btn-primary:hover{background:#2ea043;border-color:#2ea043}
+.btn-secondary{background:#21262d;color:#c9d1d9;border-color:#30363d}
+.btn-secondary:hover{background:#30363d;border-color:#484f58}
+.btn-danger{background:#da3633;color:#fff;border-color:#da3633}
+.btn-danger:hover{background:#f85149;border-color:#f85149}
+.btn-ghost{background:transparent;color:#8b949e}
+.btn-ghost:hover{color:#c9d1d9;background:#21262d}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-block{width:100%;justify-content:center}
+
+/* ── FORMS ── */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;font-weight:600;color:#c9d1d9;margin-bottom:6px}
+.form-help{font-size:11px;color:#484f58;margin-top:4px}
+.form-control{width:100%;padding:9px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:13px;transition:border-color .12s}
+.form-control:focus{outline:none;border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.1)}
+.form-control:disabled{background:#161b22;color:#484f58;cursor:not-allowed}
+select.form-control{cursor:pointer}
+textarea.form-control{resize:vertical;min-height:80px;font-family:'SF Mono',monospace;font-size:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-error{font-size:12px;color:#f85149;margin-top:4px;display:flex;align-items:center;gap:6px}
+.form-success{font-size:12px;color:#3fb950;margin-top:4px}
+
+/* ── CARDS ── */
+.card{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:20px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:700;color:#c9d1d9;margin-bottom:4px}
+.card-sub{font-size:12px;color:#484f58;margin-bottom:16px}
+.card-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #21262d}
+.card-row:last-child{border-bottom:none}
+.card-row-label{font-size:12px;color:#8b949e}
+.card-row-value{font-size:13px;color:#c9d1d9;font-weight:600}
+
+/* Stats grid */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:16px}
+.stat-label{font-size:11px;color:#484f58;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.stat-value{font-size:26px;font-weight:800;color:#c9d1d9;margin-top:6px;line-height:1}
+.stat-sub{font-size:11px;color:#3fb950;margin-top:6px}
+.stat-sub.warn{color:#f0883e}
+.stat-sub.danger{color:#f85149}
+
+/* ── TABLES ── */
+.tbl-wrap{background:#161b22;border:1px solid #21262d;border-radius:10px;overflow:hidden;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#0d1117;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;border-bottom:1px solid #21262d}
+td{padding:11px 14px;border-bottom:1px solid #21262d;color:#c9d1d9;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.clickable{cursor:pointer;transition:background .1s}
+tr.clickable:hover td{background:#1c2128}
+.empty{padding:50px 20px;text-align:center;color:#484f58;font-size:13px}
+.empty-ico{font-size:42px;margin-bottom:12px;opacity:.4}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap;text-transform:uppercase}
+.badge-active{background:#0e2a1d;color:#3fb950;border:1px solid #238636}
+.badge-trial{background:#1c0e2a;color:#bc8cff;border:1px solid #6e40c9}
+.badge-pending{background:#271c06;color:#f0883e;border:1px solid #9e6a03}
+.badge-past-due{background:#271c06;color:#f0883e;border:1px solid #9e6a03}
+.badge-canceled{background:#270b0b;color:#f85149;border:1px solid #6e1a1a}
+.badge-suspended{background:#270b0b;color:#f85149;border:1px solid #6e1a1a}
+.badge-deleted{background:#21262d;color:#484f58;border:1px solid #30363d}
+.badge-unverified{background:#1c1407;color:#f0883e;border:1px solid #9e6a03}
+.badge-inactive{background:#21262d;color:#8b949e;border:1px solid #30363d}
+.badge-draft{background:#21262d;color:#8b949e;border:1px solid #30363d}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#161b22;border:1px solid #30363d;border-radius:12px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.modal.lg{max-width:700px}
+.modal-head{padding:20px 24px;border-bottom:1px solid #21262d;display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:16px;font-weight:700;color:#c9d1d9}
+.modal-close{font-size:22px;color:#484f58;cursor:pointer;line-height:1;padding:0 4px}
+.modal-close:hover{color:#c9d1d9}
+.modal-body{padding:24px}
+.modal-foot{padding:16px 24px;border-top:1px solid #21262d;display:flex;justify-content:flex-end;gap:10px}
+
+/* ── LANDING ── */
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;background:radial-gradient(ellipse at top,#161b22 0%,#0d1117 60%)}
+.landing-logo{font-size:40px;font-weight:900;color:#58a6ff;letter-spacing:-1.5px;margin-bottom:8px}
+.landing-tag{font-size:14px;color:#8b949e;margin-bottom:36px;text-align:center;max-width:500px}
+.landing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;max-width:900px;width:100%;margin-bottom:24px}
+.landing-card{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:24px;cursor:pointer;transition:all .15s}
+.landing-card:hover{border-color:#58a6ff;transform:translateY(-2px)}
+.landing-card-ico{font-size:32px;margin-bottom:12px}
+.landing-card-title{font-size:16px;font-weight:700;color:#c9d1d9;margin-bottom:6px}
+.landing-card-sub{font-size:12px;color:#8b949e;line-height:1.5}
+.landing-card-tag{display:inline-block;margin-top:10px;padding:3px 8px;font-size:10px;font-weight:700;background:#0c1c32;color:#58a6ff;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── AUTH PAGES ── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px 20px;background:radial-gradient(ellipse at top,#161b22 0%,#0d1117 60%)}
+.auth-card{background:#161b22;border:1px solid #21262d;border-radius:14px;padding:32px;max-width:420px;width:100%}
+.auth-head{text-align:center;margin-bottom:24px}
+.auth-product-logo{display:inline-block;width:56px;height:56px;background:#0d1117;border:1px solid #30363d;border-radius:14px;line-height:54px;font-size:24px;font-weight:800;color:#58a6ff;margin-bottom:14px}
+.auth-title{font-size:20px;font-weight:700;color:#c9d1d9}
+.auth-sub{font-size:13px;color:#8b949e;margin-top:6px}
+.auth-foot{text-align:center;font-size:12px;color:#8b949e;margin-top:20px}
+
+/* ── EMAIL INBOX (mock) ── */
+.inbox-fab{position:fixed;bottom:24px;right:24px;width:54px;height:54px;border-radius:50%;background:#1f6feb;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 24px rgba(31,111,235,.4);z-index:90;transition:all .2s}
+.inbox-fab:hover{background:#388bfd;transform:scale(1.05)}
+.inbox-badge{position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 6px;border:2px solid #0d1117}
+
+.email-item{padding:14px;background:#0d1117;border:1px solid #21262d;border-radius:8px;margin-bottom:10px}
+.email-from{font-size:11px;color:#484f58;margin-bottom:4px}
+.email-subj{font-size:13px;font-weight:600;color:#c9d1d9;margin-bottom:6px}
+.email-body{font-size:12px;color:#8b949e;line-height:1.6;margin-bottom:10px;white-space:pre-wrap}
+.email-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── DEV PANEL ── */
+.dev-fab{position:fixed;bottom:24px;left:24px;width:48px;height:48px;border-radius:50%;background:#21262d;color:#8b949e;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #30363d;z-index:90}
+.dev-fab:hover{background:#30363d;color:#c9d1d9}
+
+/* ── MISC ── */
+.alert{padding:12px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;display:flex;align-items:flex-start;gap:10px}
+.alert-info{background:#0c1c32;border:1px solid #1f6feb;color:#79c0ff}
+.alert-warn{background:#1c1407;border:1px solid #9e6a03;color:#f0883e}
+.alert-danger{background:#270b0b;border:1px solid #6e1a1a;color:#ff7b72}
+.alert-success{background:#0e2a1d;border:1px solid #238636;color:#3fb950}
+.alert-ico{font-size:18px;line-height:1;flex-shrink:0;margin-top:1px}
+.divider{height:1px;background:#21262d;margin:20px 0}
+.muted{color:#484f58}
+.mono{font-family:'SF Mono','Fira Code',monospace;font-size:12px;color:#79c0ff}
+.code-box{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px 12px;font-family:'SF Mono',monospace;font-size:12px;color:#79c0ff;word-break:break-all;margin:8px 0}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:2px;border-bottom:1px solid #21262d;margin-bottom:20px}
+.tab{padding:10px 16px;font-size:13px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all .12s}
+.tab:hover{color:#c9d1d9}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.flex-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#c9d1d9;cursor:pointer}
+.checkbox-row input{cursor:pointer}
+.section-title{font-size:13px;font-weight:700;color:#c9d1d9;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px}
+.list-item{padding:12px 14px;background:#0d1117;border:1px solid #21262d;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.list-item-info{flex:1;min-width:0}
+.list-item-title{font-size:13px;font-weight:600;color:#c9d1d9;display:flex;align-items:center;gap:8px}
+.list-item-sub{font-size:11px;color:#484f58;margin-top:2px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #21262d;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;top:20px;right:20px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 18px;font-size:13px;color:#c9d1d9;display:flex;align-items:center;gap:10px;z-index:200;animation:slideIn .25s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast.success{border-color:#238636}
+.toast.error{border-color:#6e1a1a}
+@keyframes slideIn{from{transform:translateX(120%)}to{transform:translateX(0)}}
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<!-- Email inbox FAB -->
+<div id="inboxFab" class="inbox-fab" onclick="openInbox()" style="display:none">
+  ✉️<span id="inboxBadge" class="inbox-badge" style="display:none">0</span>
+</div>
+
+<!-- Dev panel FAB -->
+<div class="dev-fab" onclick="openDevPanel()" title="Reset / Inspect DB">⚙️</div>
+
+<!-- Modal container -->
+<div id="modalBg" class="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div id="modalEl" class="modal"></div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   1. DB LAYER (localStorage)
+   ═══════════════════════════════════════════════════════════════════ */
+const DB_KEY = 'yocore_db_v1';
+const COLLECTIONS = ['users','sessions','authTokens','products','productUsers','workspaces','workspaceMembers','roles','billingPlans','subscriptions','paymentGateways','invitations','webhookDeliveries','auditLogs','bundles','emails'];
+
+const DB = {
+  _cache: null,
+  _load(){
+    if(this._cache) return this._cache;
+    const raw = localStorage.getItem(DB_KEY);
+    if(raw){
+      this._cache = JSON.parse(raw);
+    } else {
+      this._cache = {};
+      COLLECTIONS.forEach(c=>this._cache[c]=[]);
+      this._cache._meta = { createdAt: Date.now(), session: null };
+      this._save();
+    }
+    // Ensure all collections exist (forward-compat)
+    COLLECTIONS.forEach(c=>{ if(!this._cache[c]) this._cache[c]=[]; });
+    if(!this._cache._meta) this._cache._meta = { createdAt: Date.now(), session: null };
+    return this._cache;
+  },
+  _save(){ localStorage.setItem(DB_KEY, JSON.stringify(this._cache)); },
+  reset(){ localStorage.removeItem(DB_KEY); this._cache=null; this._load(); },
+  all(coll){ return this._load()[coll] || []; },
+  find(coll, query){ return this.all(coll).filter(d => Object.entries(query).every(([k,v])=>this._get(d,k)===v)); },
+  findOne(coll, query){ return this.find(coll, query)[0] || null; },
+  insert(coll, doc){
+    doc._id = doc._id || (coll.slice(0,3)+'_'+Math.random().toString(36).slice(2,12));
+    doc.createdAt = doc.createdAt || Date.now();
+    doc.updatedAt = doc.updatedAt || Date.now();
+    this._load()[coll].push(doc);
+    this._save();
+    return doc;
+  },
+  update(coll, id, patch){
+    const d = this.findOne(coll, {_id:id});
+    if(!d) return null;
+    Object.assign(d, patch, { updatedAt: Date.now() });
+    this._save();
+    return d;
+  },
+  delete(coll, id){
+    const arr = this._load()[coll];
+    const idx = arr.findIndex(d=>d._id===id);
+    if(idx>=0){ arr.splice(idx,1); this._save(); return true; }
+    return false;
+  },
+  deleteMany(coll, query){
+    const arr = this._load()[coll];
+    const before = arr.length;
+    this._cache[coll] = arr.filter(d => !Object.entries(query).every(([k,v])=>this._get(d,k)===v));
+    this._save();
+    return before - this._cache[coll].length;
+  },
+  _get(obj, path){
+    return path.split('.').reduce((o,k)=>o&&o[k], obj);
+  },
+  setSession(s){ this._load()._meta.session = s; this._save(); },
+  getSession(){ return this._load()._meta.session; },
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. AUTH / CRYPTO HELPERS (mock)
+   ═══════════════════════════════════════════════════════════════════ */
+function hashPassword(pw){ return 'argon2id$' + btoa(unescape(encodeURIComponent(pw))).split('').reverse().join(''); }
+function verifyPassword(pw, hash){ return hashPassword(pw) === hash; }
+function genToken(){ return Array.from({length:32},()=>Math.floor(Math.random()*36).toString(36)).join(''); }
+function sha256(s){ return 'sha256:'+btoa(s).slice(0,32); }
+function normalize(email){ return (email||'').trim().toLowerCase(); }
+
+function audit(action, opts={}){
+  const sess = DB.getSession();
+  DB.insert('auditLogs', {
+    ts: Date.now(),
+    productId: opts.productId || (sess?sess.productId:null) || null,
+    workspaceId: opts.workspaceId || null,
+    actor: opts.actor || (sess ? {type:sess.role==='SUPER_ADMIN'?'super_admin':'user', id:sess.userId, ip:'127.0.0.1'} : {type:'system'}),
+    action,
+    resource: opts.resource || null,
+    outcome: opts.outcome || 'success',
+    metadata: opts.metadata || {}
+  });
+}
+
+function sendEmail(to, subject, body, actions=[]){
+  DB.insert('emails', { to, subject, body, actions, read:false, createdAt: Date.now() });
+  updateInboxBadge();
+  toast('📧 Email sent — open inbox', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. ROUTING (hash-based)
+   ═══════════════════════════════════════════════════════════════════ */
+const ROUTES = {};
+function route(path, handler){ ROUTES[path] = handler; }
+function navigate(path){ window.location.hash = '#'+path; }
+function getRoute(){ return window.location.hash.slice(1) || '/'; }
+function render(){
+  const path = getRoute();
+  // Try exact match first, then parametric
+  let handler = ROUTES[path];
+  if(!handler){
+    // try parametric routes
+    for(const r in ROUTES){
+      const parts = r.split('/').filter(Boolean);
+      const pathParts = path.split('/').filter(Boolean);
+      if(parts.length !== pathParts.length) continue;
+      const params = {};
+      let match = true;
+      for(let i=0;i<parts.length;i++){
+        if(parts[i].startsWith(':')) params[parts[i].slice(1)] = pathParts[i];
+        else if(parts[i] !== pathParts[i]) { match=false; break; }
+      }
+      if(match){ handler = ()=>ROUTES[r](params); break; }
+    }
+  }
+  if(!handler) handler = ROUTES['/404'] || ROUTES['/'];
+  document.getElementById('root').innerHTML = '';
+  handler();
+  updateInboxBadge();
+  // hide inbox FAB on landing
+  document.getElementById('inboxFab').style.display = (path==='/' || path==='') ? 'none' : 'flex';
+}
+window.addEventListener('hashchange', render);
+
+/* ═══════════════════════════════════════════════════════════════════
+   4. UI HELPERS
+   ═══════════════════════════════════════════════════════════════════ */
+function el(tag, attrs={}, ...children){
+  const e = document.createElement(tag);
+  for(const k in attrs){
+    if(k==='class') e.className = attrs[k];
+    else if(k==='style') e.style.cssText = attrs[k];
+    else if(k.startsWith('on')) e[k.toLowerCase()] = attrs[k];
+    else if(k==='html') e.innerHTML = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  for(const c of children){
+    if(c==null) continue;
+    if(typeof c==='string') e.appendChild(document.createTextNode(c));
+    else e.appendChild(c);
+  }
+  return e;
+}
+function $(sel){ return document.querySelector(sel); }
+function setHTML(html){ document.getElementById('root').innerHTML = html; }
+function appendHTML(html){ document.getElementById('root').insertAdjacentHTML('beforeend', html); }
+
+function openModal(html){
+  $('#modalEl').innerHTML = html;
+  $('#modalBg').classList.add('show');
+}
+function closeModal(){ $('#modalBg').classList.remove('show'); }
+
+function toast(msg, type='success'){
+  const t = el('div', {class:'toast '+type, html: msg});
+  $('#toastContainer').appendChild(t);
+  setTimeout(()=>t.style.opacity='0', 2500);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+function fmtDate(ts){ if(!ts) return '—'; return new Date(ts).toLocaleString(); }
+function fmtRelative(ts){
+  if(!ts) return '—';
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff/60000);
+  if(m < 1) return 'just now';
+  if(m < 60) return m+'m ago';
+  const h = Math.floor(m/60);
+  if(h < 24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function fmtMoney(amt, ccy){
+  if(amt==null) return '—';
+  const symbols = {usd:'$', eur:'€', bdt:'৳', gbp:'£'};
+  return (symbols[ccy]||(ccy||'').toUpperCase()+' ') + (amt/100).toFixed(2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   5. LAYOUT (sidebar + topbar)
+   ═══════════════════════════════════════════════════════════════════ */
+function layout({ side, title, sub, actions, body }){
+  const sess = DB.getSession();
+  const root = $('#root');
+  const wrap = el('div', {class:'app'});
+  const sidebar = el('aside', {class:'sidebar'});
+
+  // Brand
+  if(side === 'admin'){
+    sidebar.appendChild(el('div',{class:'brand'},
+      el('div',{class:'brand-logo'},'YoCore'),
+      el('div',{class:'brand-sub'},'Super Admin Portal')));
+  } else if(side && side.product){
+    sidebar.appendChild(el('div',{class:'brand'},
+      el('div',{class:'brand-logo'},side.product.name),
+      el('div',{class:'brand-sub'},'Powered by YoCore')));
+  }
+
+  // Nav items
+  if(side === 'admin'){
+    const cur = getRoute();
+    const items = [
+      ['/admin','📊','Dashboard'],
+      ['/admin/products','📦','Products'],
+      ['/admin/users','👥','Users'],
+      ['/admin/subscriptions','💳','Subscriptions'],
+      ['/admin/audit','📜','Audit Log'],
+    ];
+    sidebar.appendChild(el('div',{class:'nav-section'},'Manage'));
+    items.forEach(([h,i,n])=>{
+      const item = el('div', {class:'nav-item'+(cur===h||cur.startsWith(h+'/')?' active':''),
+        onclick:()=>navigate(h)},
+        el('span',{class:'ico'},i), n);
+      sidebar.appendChild(item);
+    });
+  } else if(side && side.product){
+    const cur = getRoute();
+    const pid = side.product._id;
+    const items = [
+      ['/p/'+pid,'🏠','Dashboard'],
+      ['/p/'+pid+'/workspaces','🗂️','Workspaces'],
+      ['/p/'+pid+'/billing','💳','Billing'],
+      ['/p/'+pid+'/settings','⚙️','Settings'],
+    ];
+    sidebar.appendChild(el('div',{class:'nav-section'},'Workspace'));
+    items.forEach(([h,i,n])=>{
+      const item = el('div', {class:'nav-item'+(cur===h||cur.startsWith(h+'/')?' active':''),
+        onclick:()=>navigate(h)},
+        el('span',{class:'ico'},i), n);
+      sidebar.appendChild(item);
+    });
+  }
+
+  // User card
+  if(sess){
+    const u = DB.findOne('users',{_id:sess.userId});
+    if(u){
+      const userBox = el('div',{class:'sidebar-user'},
+        el('div',{class:'uname'}, u.name?.display || u.email),
+        el('div',{class:'uemail'}, u.email),
+        el('span',{class:'urole'}, sess.role||u.role));
+      const logout = el('button',{class:'btn-logout',onclick:logoutCurrent},'Sign out');
+      userBox.appendChild(logout);
+      sidebar.appendChild(userBox);
+    }
+  }
+
+  sidebar.appendChild(el('div',{class:'sidebar-footer'},
+    el('div',{},'YoCore Demo v1.0'),
+    el('div',{style:'margin-top:4px',onclick:()=>navigate('/'),style:'cursor:pointer;color:#58a6ff'},'← Switch portal')
+  ));
+
+  wrap.appendChild(sidebar);
+
+  const main = el('div', {class:'main'});
+  const topbar = el('div',{class:'topbar'},
+    el('div',{},
+      el('div',{class:'topbar-title'}, title),
+      sub?el('div',{class:'topbar-sub'}, sub):null),
+    el('div',{class:'topbar-actions'}, ...(actions||[])));
+  main.appendChild(topbar);
+  const content = el('div', {class:'content'});
+  if(typeof body === 'string') content.innerHTML = body;
+  else if(body) content.appendChild(body);
+  main.appendChild(content);
+  wrap.appendChild(main);
+  root.innerHTML = '';
+  root.appendChild(wrap);
+}
+
+function logoutCurrent(){
+  const sess = DB.getSession();
+  if(sess && sess.sessionId){
+    DB.update('sessions', sess.sessionId, { revokedAt: Date.now(), revokedReason:'user_logout' });
+  }
+  audit('user.logout');
+  DB.setSession(null);
+  toast('Signed out');
+  navigate('/');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. LANDING PAGE
+   ═══════════════════════════════════════════════════════════════════ */
+route('/', () => {
+  const products = DB.find('products', {status:'ACTIVE'});
+  const wrap = el('div',{class:'landing'});
+  wrap.appendChild(el('div',{class:'landing-logo'},'YoCore'));
+  wrap.appendChild(el('div',{class:'landing-tag'},'Centralized auth, billing & lifecycle for the entire Yo product family. Pick a portal to begin.'));
+  const grid = el('div',{class:'landing-grid'});
+
+  // Super Admin card
+  const adminCard = el('div',{class:'landing-card', onclick:()=>navigate('/admin/login')},
+    el('div',{class:'landing-card-ico'},'🛡️'),
+    el('div',{class:'landing-card-title'},'Super Admin Portal'),
+    el('div',{class:'landing-card-sub'},'Manage products, plans, gateways, users, subscriptions across the whole Yo ecosystem.'),
+    el('span',{class:'landing-card-tag'},'YoCore staff only'));
+  grid.appendChild(adminCard);
+
+  // Per-product cards
+  products.forEach(p=>{
+    const card = el('div',{class:'landing-card', onclick:()=>navigate('/p/'+p._id+'/login')},
+      el('div',{class:'landing-card-ico'}, p.name[0]),
+      el('div',{class:'landing-card-title'}, p.name),
+      el('div',{class:'landing-card-sub'}, p.description || 'Sign in or create an account to use '+p.name+'.'),
+      el('span',{class:'landing-card-tag', style:'background:#0e2a1d;color:#3fb950'},'End user'));
+    grid.appendChild(card);
+  });
+
+  if(products.length === 0){
+    const help = el('div',{class:'landing-card', style:'border-style:dashed;cursor:default;opacity:.7'},
+      el('div',{class:'landing-card-ico'},'➕'),
+      el('div',{class:'landing-card-title'},'No products yet'),
+      el('div',{class:'landing-card-sub'},'Sign in as Super Admin and register your first product to see it here as an end-user portal.'));
+    grid.appendChild(help);
+  }
+
+  wrap.appendChild(grid);
+  wrap.appendChild(el('div',{style:'margin-top:30px;font-size:11px;color:#484f58;text-align:center'},
+    'Demo runs entirely in your browser — all data lives in localStorage. Click ⚙️ (bottom-left) anytime to inspect or reset.'));
+  $('#root').innerHTML = '';
+  $('#root').appendChild(wrap);
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. SUPER ADMIN — bootstrap, login, dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+route('/admin/login', () => {
+  const hasAdmin = DB.findOne('users', {role:'SUPER_ADMIN'});
+  const wrap = el('div',{class:'auth-wrap'});
+  const card = el('div',{class:'auth-card'});
+  card.innerHTML = `
+    <div class="auth-head">
+      <div class="auth-product-logo">🛡️</div>
+      <div class="auth-title">${hasAdmin?'Super Admin sign-in':'Bootstrap Super Admin'}</div>
+      <div class="auth-sub">${hasAdmin?'Sign in to manage the YoCore platform':'No SUPER_ADMIN exists yet — create the first one.'}</div>
+    </div>
+    <form id="adminForm">
+      ${!hasAdmin?`
+        <div class="form-group">
+          <label class="form-label">Display name</label>
+          <input class="form-control" name="name" required value="Admin User">
+        </div>
+      `:''}
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-control" name="email" type="email" required value="${hasAdmin?'':'admin@yocore.com'}" placeholder="admin@yocore.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-control" name="password" type="password" required value="${hasAdmin?'':'admin123'}" placeholder="••••••••">
+      </div>
+      <div id="formErr"></div>
+      <button class="btn btn-primary btn-block" type="submit">${hasAdmin?'Sign in':'Bootstrap & sign in'}</button>
+    </form>
+    <div class="auth-foot">
+      <a href="#/" onclick="event.preventDefault();navigate('/')">← Back to portal selection</a>
+    </div>
+  `;
+  wrap.appendChild(card);
+  $('#root').innerHTML='';
+  $('#root').appendChild(wrap);
+
+  $('#adminForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const email = normalize(fd.get('email'));
+    const password = fd.get('password');
+    const errEl = $('#formErr');
+    errEl.innerHTML = '';
+
+    if(!hasAdmin){
+      // Bootstrap
+      const u = DB.insert('users', {
+        email, emailNormalized: email,
+        passwordHash: hashPassword(password),
+        passwordUpdatedAt: Date.now(),
+        name: { first: fd.get('name'), last:'', display: fd.get('name') },
+        timezone:'Asia/Dhaka', locale:'en-US',
+        status:'ACTIVE', emailVerified:true, emailVerifiedAt: Date.now(), emailVerifiedMethod:'bootstrap',
+        role:'SUPER_ADMIN',
+        failedLoginAttempts:0, _v:1
+      });
+      audit('user.bootstrap', {actor:{type:'system'}, resource:{type:'user',id:u._id}});
+      // create session
+      const s = DB.insert('sessions', {
+        userId: u._id, productId:null, workspaceId:null,
+        refreshTokenHash: sha256(genToken()),
+        refreshTokenFamilyId: 'rtf_'+genToken().slice(0,8),
+        jwtId: 'jti_'+genToken().slice(0,8),
+        device:{userAgent:navigator.userAgent, ip:'127.0.0.1'},
+        refreshExpiresAt: Date.now()+30*86400000
+      });
+      DB.setSession({ userId: u._id, sessionId: s._id, role:'SUPER_ADMIN', productId:null });
+      audit('user.signin', {outcome:'success'});
+      toast('Welcome, Super Admin');
+      navigate('/admin');
+      return;
+    }
+
+    // Sign in
+    const u = DB.findOne('users', { emailNormalized: email });
+    if(!u || u.role !== 'SUPER_ADMIN'){
+      errEl.innerHTML = '<div class="form-error">⚠️ Invalid credentials</div>';
+      return;
+    }
+    if(u.lockedUntil && u.lockedUntil > Date.now()){
+      errEl.innerHTML = '<div class="form-error">⚠️ Account locked. Try again later.</div>';
+      return;
+    }
+    if(!verifyPassword(password, u.passwordHash)){
+      const fa = (u.failedLoginAttempts||0)+1;
+      DB.update('users', u._id, { failedLoginAttempts: fa, lockedUntil: fa>=5?Date.now()+15*60000:null });
+      audit('user.signin', {outcome:'failure', actor:{type:'super_admin', id:u._id}});
+      errEl.innerHTML = '<div class="form-error">⚠️ Invalid credentials ('+(5-fa)+' tries left)</div>';
+      return;
+    }
+    DB.update('users', u._id, { lastLoginAt: Date.now(), failedLoginAttempts:0, lockedUntil:null });
+    const s = DB.insert('sessions', {
+      userId: u._id, productId:null, workspaceId:null,
+      refreshTokenHash: sha256(genToken()),
+      refreshTokenFamilyId: 'rtf_'+genToken().slice(0,8),
+      jwtId: 'jti_'+genToken().slice(0,8),
+      device:{userAgent:navigator.userAgent},
+      refreshExpiresAt: Date.now()+30*86400000
+    });
+    DB.setSession({ userId: u._id, sessionId: s._id, role:'SUPER_ADMIN', productId:null });
+    audit('user.signin');
+    toast('Signed in');
+    navigate('/admin');
+  };
+});
+
+function requireAdmin(){
+  const sess = DB.getSession();
+  if(!sess || sess.role !== 'SUPER_ADMIN'){ navigate('/admin/login'); return false; }
+  return true;
+}
+
+route('/admin', () => {
+  if(!requireAdmin()) return;
+  const products = DB.all('products');
+  const subs = DB.find('subscriptions', {status:'ACTIVE'});
+  const trialing = DB.find('subscriptions', {status:'TRIALING'});
+  const pastDue = DB.find('subscriptions', {status:'PAST_DUE'});
+  const users = DB.all('users').filter(u=>u.role!=='SUPER_ADMIN');
+  const mrr = subs.reduce((s,x)=>s+(x.amount||0),0);
+
+  const body = el('div');
+
+  // Stats
+  const stats = el('div',{class:'stats'});
+  stats.innerHTML = `
+    <div class="stat"><div class="stat-label">Products</div><div class="stat-value">${products.length}</div><div class="stat-sub">${products.filter(p=>p.status==='ACTIVE').length} active</div></div>
+    <div class="stat"><div class="stat-label">End users</div><div class="stat-value">${users.length}</div></div>
+    <div class="stat"><div class="stat-label">Active subs</div><div class="stat-value">${subs.length}</div><div class="stat-sub">${trialing.length} trialing</div></div>
+    <div class="stat"><div class="stat-label">MRR</div><div class="stat-value">${fmtMoney(mrr,'usd')}</div><div class="stat-sub ${pastDue.length?'warn':''}">${pastDue.length} past due</div></div>
+  `;
+  body.appendChild(stats);
+
+  // Products grid
+  const cardTitle = el('div',{class:'flex-between'},
+    el('div',{class:'card-title'},'Products'),
+    el('button',{class:'btn btn-primary btn-sm', onclick:()=>navigate('/admin/products/new')},'+ New Product'));
+  body.appendChild(cardTitle);
+  if(products.length === 0){
+    body.appendChild(el('div',{class:'card', style:'text-align:center;padding:40px'},
+      el('div',{class:'empty-ico'},'📦'),
+      el('div',{class:'card-title'},'No products yet'),
+      el('div',{class:'card-sub'},'Register your first product to start onboarding end users.'),
+      el('button',{class:'btn btn-primary', onclick:()=>navigate('/admin/products/new')},'+ Register first product')));
+  } else {
+    const tbl = el('div',{class:'tbl-wrap'});
+    let html = '<table><thead><tr><th>Product</th><th>Slug</th><th>Status</th><th>Users</th><th>Subs</th><th>MRR</th></tr></thead><tbody>';
+    products.forEach(p=>{
+      const pus = DB.find('productUsers',{productId:p._id, status:'ACTIVE'}).length;
+      const psubs = DB.find('subscriptions',{productId:p._id, status:'ACTIVE'});
+      const pmrr = psubs.reduce((s,x)=>s+(x.amount||0),0);
+      html += `<tr class="clickable" onclick="navigate('/admin/products/${p._id}')">
+        <td><strong>${p.name}</strong></td>
+        <td><span class="mono">${p.slug}</span></td>
+        <td><span class="badge badge-${p.status.toLowerCase()}">${p.status}</span></td>
+        <td>${pus}</td>
+        <td>${psubs.length}</td>
+        <td>${fmtMoney(pmrr,'usd')}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    body.appendChild(tbl);
+  }
+
+  layout({ side:'admin', title:'Dashboard', sub:'Platform overview', body });
+});
+
+/* ─── Admin: Products ─── */
+route('/admin/products', () => {
+  if(!requireAdmin()) return;
+  const products = DB.all('products');
+  const body = el('div');
+  body.appendChild(el('div',{class:'flex-between'},
+    el('div',{}, el('div',{class:'card-title'},'All products'), el('div',{class:'card-sub'},products.length+' registered')),
+    el('button',{class:'btn btn-primary',onclick:()=>navigate('/admin/products/new')},'+ Register product')));
+  if(products.length === 0){
+    body.appendChild(el('div',{class:'card empty'},'No products yet.'));
+  } else {
+    products.forEach(p=>{
+      const card = el('div',{class:'card', style:'cursor:pointer', onclick:()=>navigate('/admin/products/'+p._id)});
+      card.innerHTML = `
+        <div class="flex-between" style="margin-bottom:8px">
+          <div><div class="card-title">${p.name}</div><div class="card-sub">${p.description||'—'}</div></div>
+          <span class="badge badge-${p.status.toLowerCase()}">${p.status}</span>
+        </div>
+        <div class="tag-row" style="font-size:11px;color:#484f58">
+          <span>📂 ${p.slug}</span>
+          <span>•</span>
+          <span>🌐 ${p.domain||'—'}</span>
+          <span>•</span>
+          <span>💰 Scope: ${p.billingScope}</span>
+        </div>`;
+      body.appendChild(card);
+    });
+  }
+  layout({ side:'admin', title:'Products', body });
+});
+
+route('/admin/products/new', () => {
+  if(!requireAdmin()) return;
+  const body = el('div');
+  body.innerHTML = `
+    <div class="card" style="max-width:640px;margin:0 auto">
+      <div class="card-title">Register a new product</div>
+      <div class="card-sub">Creates the product record + 4 default roles (OWNER, ADMIN, MEMBER, VIEWER) and generates an API key/secret pair.</div>
+      <form id="prodForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Product name *</label>
+            <input class="form-control" name="name" required placeholder="YoPM">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Slug *</label>
+            <input class="form-control" name="slug" required pattern="[a-z0-9-]+" placeholder="yopm">
+            <div class="form-help">lowercase, hyphens only</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input class="form-control" name="description" placeholder="Project management for indie teams">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Domain</label>
+            <input class="form-control" name="domain" placeholder="yopm.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Billing scope *</label>
+            <select class="form-control" name="billingScope">
+              <option value="workspace">Workspace</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Webhook URL (YoCore → product)</label>
+          <input class="form-control" name="webhookUrl" placeholder="https://yopm.com/webhooks/yocore">
+        </div>
+        <div class="alert alert-info"><span class="alert-ico">ℹ️</span><div>The API secret is shown <strong>once only</strong> after creation. Copy it immediately.</div></div>
+        <div class="tag-row">
+          <button type="submit" class="btn btn-primary">Register product</button>
+          <button type="button" class="btn btn-secondary" onclick="navigate('/admin/products')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+  layout({ side:'admin', title:'Register product', body });
+
+  $('#prodForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const slug = fd.get('slug');
+    if(DB.findOne('products',{slug})) return toast('Slug already taken','error');
+    const apiKey = 'yc_live_pk_'+genToken().slice(0,20);
+    const apiSecret = 'yc_live_sk_'+genToken();
+    const p = DB.insert('products', {
+      name: fd.get('name'),
+      slug,
+      domain: fd.get('domain') || null,
+      description: fd.get('description') || '',
+      allowedOrigins: fd.get('domain')?['https://'+fd.get('domain')]:[],
+      logoUrl: null,
+      status: 'ACTIVE',  // demo: auto-activate
+      apiKey,
+      apiSecretHash: sha256(apiSecret),
+      apiSecretCreatedAt: Date.now(),
+      webhookUrl: fd.get('webhookUrl') || null,
+      webhookEvents: ['subscription.activated','subscription.canceled','user.created'],
+      billingScope: fd.get('billingScope'),
+      billingConfig: {
+        gatewayRouting: { usd:'stripe', bdt:'sslcommerz', default:'stripe' },
+        gracePeriodDays: 7,
+        gracePeriodEmailSchedule: [1,5,7],
+        holdPeriodDays: 85,
+        holdPeriodWarningDays: [30,60],
+        canReactivateDuringHold: true,
+        trialDefaultDays: 14
+      },
+      defaultRoleSlug: 'MEMBER',
+      createdBy: DB.getSession().userId
+    });
+    // Seed 4 roles
+    ['OWNER','ADMIN','MEMBER','VIEWER'].forEach(slug=>{
+      DB.insert('roles', {
+        productId: p._id, slug, name: slug.charAt(0)+slug.slice(1).toLowerCase(),
+        isPlatform:true, isDefault: slug==='MEMBER',
+        permissions: slug==='OWNER'?['*']:slug==='VIEWER'?['workspace.read']:['workspace.read','member.invite','billing.read']
+      });
+    });
+    audit('product.created', { resource:{type:'product',id:p._id} });
+
+    openModal(`
+      <div class="modal-head">
+        <div class="modal-title">✅ Product created</div>
+        <span class="modal-close" onclick="closeModal()">×</span>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warn"><span class="alert-ico">⚠️</span><div><strong>Save this secret now.</strong> It will not be shown again.</div></div>
+        <div class="form-group"><label class="form-label">API Key</label><div class="code-box">${apiKey}</div></div>
+        <div class="form-group"><label class="form-label">API Secret</label><div class="code-box">${apiSecret}</div></div>
+        <div class="card-sub">Use these in product backend to call YoCore APIs. The secret hash is stored; the raw secret is not.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary" onclick="closeModal();navigate('/admin/products/${p._id}')">Open product</button>
+      </div>
+    `);
+  };
+});
+
+route('/admin/products/:id', (params) => {
+  if(!requireAdmin()) return;
+  const p = DB.findOne('products',{_id:params.id});
+  if(!p) return navigate('/admin/products');
+  const plans = DB.find('billingPlans',{productId:p._id});
+  const gateways = DB.find('paymentGateways',{productId:p._id});
+  const pus = DB.find('productUsers',{productId:p._id});
+  const subs = DB.find('subscriptions',{productId:p._id, status:'ACTIVE'});
+
+  const body = el('div');
+
+  // Header card
+  body.appendChild(el('div',{class:'card', html:`
+    <div class="flex-between">
+      <div>
+        <div class="card-title">${p.name} <span class="badge badge-${p.status.toLowerCase()}">${p.status}</span></div>
+        <div class="card-sub">${p.description||'—'} · slug: <span class="mono">${p.slug}</span> · scope: <strong>${p.billingScope}</strong></div>
+      </div>
+      <div class="tag-row">
+        <button class="btn btn-secondary btn-sm" onclick="navigate('/p/${p._id}/login')">Open as end user →</button>
+      </div>
+    </div>
+  `}));
+
+  // Tabs
+  const tabs = el('div',{class:'tabs'});
+  ['Overview','Plans','Gateways','Users','Settings'].forEach((t,i)=>{
+    tabs.appendChild(el('div',{class:'tab'+(i===0?' active':''),
+      onclick:`window._showTab(this, 'tab${i}')`,
+      onclick:(e)=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); e.target.classList.add('active'); document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.getElementById('tab'+i).classList.add('active'); }}, t));
+  });
+  body.appendChild(tabs);
+
+  // Tab contents
+  const tab0 = el('div',{class:'tab-content active', id:'tab0'});
+  tab0.innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="stat-label">End users</div><div class="stat-value">${pus.length}</div></div>
+      <div class="stat"><div class="stat-label">Active subs</div><div class="stat-value">${subs.length}</div></div>
+      <div class="stat"><div class="stat-label">Plans</div><div class="stat-value">${plans.length}</div><div class="stat-sub">${plans.filter(x=>x.status==='ACTIVE').length} live</div></div>
+      <div class="stat"><div class="stat-label">Gateways</div><div class="stat-value">${gateways.length}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Integration credentials</div>
+      <div class="card-sub">Use these in your product backend to call YoCore APIs.</div>
+      <div class="form-group"><label class="form-label">API Key</label><div class="code-box">${p.apiKey}</div></div>
+      <div class="form-group"><label class="form-label">Webhook URL</label><div class="code-box">${p.webhookUrl||'(not set)'}</div></div>
+    </div>
+  `;
+  body.appendChild(tab0);
+
+  // Plans tab
+  const tab1 = el('div',{class:'tab-content', id:'tab1'});
+  tab1.appendChild(el('div',{class:'flex-between'},
+    el('div',{}, el('div',{class:'card-title'},'Billing plans'), el('div',{class:'card-sub'},plans.length+' total')),
+    el('button',{class:'btn btn-primary btn-sm', onclick:()=>openCreatePlanModal(p._id)},'+ New plan')));
+  if(plans.length === 0){
+    tab1.appendChild(el('div',{class:'card empty'},'No plans yet. Create one to allow end users to subscribe.'));
+  } else {
+    plans.forEach(pl=>{
+      const card = el('div',{class:'list-item', html:`
+        <div class="list-item-info">
+          <div class="list-item-title">${pl.name} <span class="badge badge-${pl.status.toLowerCase()}">${pl.status}</span></div>
+          <div class="list-item-sub">${fmtMoney(pl.amount, pl.currency)} / ${pl.interval} · ${pl.trialDays||0}d trial · max ${pl.limits.maxMembers===-1?'∞':pl.limits.maxMembers} members</div>
+        </div>
+        <div class="tag-row">
+          ${pl.status==='DRAFT'?'<button class="btn btn-primary btn-sm" onclick="publishPlan(\''+pl._id+'\')">Publish</button>':''}
+          ${pl.status==='ACTIVE'?'<button class="btn btn-secondary btn-sm" onclick="archivePlan(\''+pl._id+'\')">Archive</button>':''}
+        </div>
+      `});
+      tab1.appendChild(card);
+    });
+  }
+  body.appendChild(tab1);
+
+  // Gateways tab
+  const tab2 = el('div',{class:'tab-content', id:'tab2'});
+  tab2.appendChild(el('div',{class:'flex-between'},
+    el('div',{}, el('div',{class:'card-title'},'Payment gateways'), el('div',{class:'card-sub'},'Add Stripe / SSLCommerz to accept payments')),
+    el('button',{class:'btn btn-primary btn-sm', onclick:()=>openAddGatewayModal(p._id)},'+ Add gateway')));
+  if(gateways.length === 0){
+    tab2.appendChild(el('div',{class:'card empty'},'No gateways configured. Add one to enable paid subscriptions.'));
+  } else {
+    gateways.forEach(g=>{
+      tab2.appendChild(el('div',{class:'list-item', html:`
+        <div class="list-item-info">
+          <div class="list-item-title">${g.provider.toUpperCase()} <span class="badge badge-${g.status.toLowerCase()}">${g.status}</span> <span class="badge badge-inactive">${g.mode}</span></div>
+          <div class="list-item-sub">Last verified ${fmtRelative(g.lastVerifiedAt)} · ${g.displayName||''}</div>
+        </div>
+      `}));
+    });
+    // Show routing config
+    tab2.appendChild(el('div',{class:'card', style:'margin-top:14px', html:`
+      <div class="card-title">Currency → Gateway routing</div>
+      <div class="card-sub">Set per-currency gateway in product config (resolved at checkout)</div>
+      <div class="card-row"><span class="card-row-label">USD</span><span class="card-row-value">${p.billingConfig.gatewayRouting.usd||'—'}</span></div>
+      <div class="card-row"><span class="card-row-label">BDT</span><span class="card-row-value">${p.billingConfig.gatewayRouting.bdt||'—'}</span></div>
+      <div class="card-row"><span class="card-row-label">Default</span><span class="card-row-value">${p.billingConfig.gatewayRouting.default||'—'}</span></div>
+    `}));
+  }
+  body.appendChild(tab2);
+
+  // Users tab
+  const tab3 = el('div',{class:'tab-content', id:'tab3'});
+  if(pus.length === 0){
+    tab3.appendChild(el('div',{class:'card empty'},'No end users yet.'));
+  } else {
+    const tbl = el('div',{class:'tbl-wrap'});
+    let html = '<table><thead><tr><th>User</th><th>Status</th><th>Onboarded</th><th>Joined</th><th>Last active</th></tr></thead><tbody>';
+    pus.forEach(pu=>{
+      const u = DB.findOne('users',{_id:pu.userId});
+      if(!u) return;
+      html += `<tr><td><strong>${u.name?.display||u.email}</strong><br><span style="font-size:11px;color:#484f58">${u.email}</span></td>
+        <td><span class="badge badge-${pu.status.toLowerCase()}">${pu.status}</span></td>
+        <td>${pu.onboarded?'✅':'⏳'}</td>
+        <td>${fmtRelative(pu.joinedAt)}</td>
+        <td>${fmtRelative(pu.lastActiveAt)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    tab3.appendChild(tbl);
+  }
+  body.appendChild(tab3);
+
+  // Settings tab
+  const tab4 = el('div',{class:'tab-content', id:'tab4'});
+  tab4.appendChild(el('div',{class:'card', html:`
+    <div class="card-title">Billing lifecycle</div>
+    <div class="card-row"><span class="card-row-label">Grace period (after payment fails)</span><span class="card-row-value">${p.billingConfig.gracePeriodDays} days</span></div>
+    <div class="card-row"><span class="card-row-label">Hold period (suspended → deletion)</span><span class="card-row-value">${p.billingConfig.holdPeriodDays} days</span></div>
+    <div class="card-row"><span class="card-row-label">Default trial</span><span class="card-row-value">${p.billingConfig.trialDefaultDays} days</span></div>
+    <div class="card-row"><span class="card-row-label">Reactivation during hold</span><span class="card-row-value">${p.billingConfig.canReactivateDuringHold?'✅ Allowed':'❌ Disabled'}</span></div>
+  `}));
+  tab4.appendChild(el('div',{class:'card', html:`
+    <div class="card-title" style="color:#f85149">Danger zone</div>
+    <div class="card-sub">Deactivating prevents new signups. Existing users keep access until cancellation.</div>
+    <button class="btn btn-danger btn-sm" onclick="deactivateProduct('${p._id}')">${p.status==='ACTIVE'?'Deactivate':'Reactivate'} product</button>
+  `}));
+  body.appendChild(tab4);
+
+  layout({ side:'admin', title:p.name, sub:'Product management', body });
+});
+
+window.publishPlan = function(id){
+  DB.update('billingPlans', id, { status:'ACTIVE' });
+  audit('plan.published', { resource:{type:'billingPlan',id} });
+  toast('Plan published');
+  render();
+};
+window.archivePlan = function(id){
+  DB.update('billingPlans', id, { status:'ARCHIVED' });
+  audit('plan.archived', { resource:{type:'billingPlan',id} });
+  toast('Plan archived');
+  render();
+};
+window.deactivateProduct = function(id){
+  const p = DB.findOne('products',{_id:id});
+  DB.update('products', id, { status: p.status==='ACTIVE'?'INACTIVE':'ACTIVE' });
+  toast('Product '+(p.status==='ACTIVE'?'deactivated':'reactivated'));
+  render();
+};
+
+function openCreatePlanModal(productId){
+  openModal(`
+    <div class="modal-head">
+      <div class="modal-title">Create billing plan</div>
+      <span class="modal-close" onclick="closeModal()">×</span>
+    </div>
+    <div class="modal-body">
+      <form id="planForm">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Plan name *</label><input class="form-control" name="name" required placeholder="Pro"></div>
+          <div class="form-group"><label class="form-label">Slug *</label><input class="form-control" name="slug" required pattern="[a-z0-9-]+" placeholder="pro"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Description</label><input class="form-control" name="description" placeholder="For growing teams"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Amount (cents)</label><input class="form-control" name="amount" type="number" required value="2900" min="0"></div>
+          <div class="form-group"><label class="form-label">Currency</label>
+            <select class="form-control" name="currency"><option>usd</option><option>eur</option><option>bdt</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Interval</label>
+            <select class="form-control" name="interval"><option>month</option><option>year</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Trial days</label><input class="form-control" name="trialDays" type="number" value="14" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Max workspaces</label><input class="form-control" name="maxWorkspaces" type="number" value="5"></div>
+          <div class="form-group"><label class="form-label">Max members per workspace</label><input class="form-control" name="maxMembers" type="number" value="25"></div>
+        </div>
+        <label class="checkbox-row"><input type="checkbox" name="isFree"> Free plan (no payment required)</label>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewPlan('${productId}')">Create plan (DRAFT)</button>
+    </div>
+  `);
+}
+window.submitNewPlan = function(productId){
+  const fd = new FormData($('#planForm'));
+  const slug = fd.get('slug');
+  if(DB.findOne('billingPlans',{productId, slug})) return toast('Slug taken','error');
+  const isFree = fd.get('isFree') === 'on';
+  const plan = DB.insert('billingPlans', {
+    productId, name: fd.get('name'), slug,
+    description: fd.get('description')||'',
+    isFree,
+    amount: isFree?0:parseInt(fd.get('amount')),
+    currency: fd.get('currency'),
+    interval: fd.get('interval'), intervalCount:1,
+    trialDays: parseInt(fd.get('trialDays')||0),
+    gatewayPriceIds: { stripe:isFree?null:'price_'+genToken().slice(0,12), sslcommerz:null, paypal:null, paddle:null },
+    limits: {
+      maxWorkspaces: parseInt(fd.get('maxWorkspaces')),
+      maxMembers: parseInt(fd.get('maxMembers')),
+      maxProjects: -1,
+      storageMb: 10240,
+      custom:{}
+    },
+    seatBased:false,
+    status:'DRAFT', visibility:'public',
+    createdBy: DB.getSession().userId
+  });
+  audit('plan.created', {productId, resource:{type:'billingPlan',id:plan._id}});
+  closeModal();
+  toast('Plan created (DRAFT) — publish to enable');
+  render();
+};
+
+function openAddGatewayModal(productId){
+  openModal(`
+    <div class="modal-head">
+      <div class="modal-title">Add payment gateway</div>
+      <span class="modal-close" onclick="closeModal()">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info"><span class="alert-ico">🔐</span><div>This is a demo — credentials are stored encrypted (mocked). The verification step is simulated.</div></div>
+      <form id="gwForm">
+        <div class="form-group"><label class="form-label">Provider *</label>
+          <select class="form-control" name="provider">
+            <option value="stripe">Stripe</option>
+            <option value="sslcommerz">SSLCommerz</option>
+            <option value="paypal">PayPal (post-MVP)</option>
+            <option value="paddle">Paddle (post-MVP)</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Mode</label>
+          <select class="form-control" name="mode"><option>test</option><option>live</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Display name</label><input class="form-control" name="displayName" placeholder="Stripe — Production"></div>
+        <div class="form-group"><label class="form-label">Secret key / credentials</label>
+          <input class="form-control" name="secret" type="password" required placeholder="sk_live_xxx (will be encrypted)">
+        </div>
+        <div class="form-group"><label class="form-label">Webhook secret</label>
+          <input class="form-control" name="webhookSecret" placeholder="whsec_xxx">
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitGateway('${productId}')">Verify & save</button>
+    </div>
+  `);
+}
+window.submitGateway = function(productId){
+  const fd = new FormData($('#gwForm'));
+  const provider = fd.get('provider');
+  if(DB.findOne('paymentGateways',{productId, provider, mode:fd.get('mode')})) return toast('Already configured','error');
+  // simulate verification
+  const g = DB.insert('paymentGateways', {
+    productId, provider, mode: fd.get('mode'),
+    status:'ACTIVE',
+    displayName: fd.get('displayName')||provider,
+    credentialsEncrypted: { secretKey:{iv:'**',tag:'**',ct:'**'}, webhookSecret:{iv:'**',tag:'**',ct:'**'} },
+    lastVerifiedAt: Date.now(),
+    lastVerificationStatus:'ok',
+    createdBy: DB.getSession().userId
+  });
+  audit('gateway.created', {productId, resource:{type:'paymentGateway',id:g._id}, metadata:{provider}});
+  closeModal();
+  toast('✅ Gateway verified & saved');
+  render();
+};
+
+/* ─── Admin: Users / Subscriptions / Audit ─── */
+route('/admin/users', () => {
+  if(!requireAdmin()) return;
+  const users = DB.all('users').filter(u=>u.role!=='SUPER_ADMIN');
+  const body = el('div');
+  if(users.length === 0){
+    body.appendChild(el('div',{class:'card empty'},'No end users yet. They appear after signing up via a product portal.'));
+  } else {
+    const tbl = el('div',{class:'tbl-wrap'});
+    let html = '<table><thead><tr><th>User</th><th>Status</th><th>Verified</th><th>Products</th><th>Created</th></tr></thead><tbody>';
+    users.forEach(u=>{
+      const products = DB.find('productUsers',{userId:u._id});
+      html += `<tr><td><strong>${u.name?.display||u.email}</strong><br><span style="font-size:11px;color:#484f58">${u.email}</span></td>
+        <td><span class="badge badge-${u.status.toLowerCase()}">${u.status}</span></td>
+        <td>${u.emailVerified?'✅':'⏳'}</td>
+        <td>${products.map(pu=>{const p=DB.findOne('products',{_id:pu.productId});return p?p.name:'';}).filter(x=>x).join(', ')||'—'}</td>
+        <td>${fmtRelative(u.createdAt)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    body.appendChild(tbl);
+  }
+  layout({ side:'admin', title:'Users', sub:users.length+' end user(s) across all products', body });
+});
+
+route('/admin/subscriptions', () => {
+  if(!requireAdmin()) return;
+  const subs = DB.all('subscriptions');
+  const body = el('div');
+  if(subs.length === 0){
+    body.appendChild(el('div',{class:'card empty'},'No subscriptions yet.'));
+  } else {
+    const tbl = el('div',{class:'tbl-wrap'});
+    let html = '<table><thead><tr><th>Subject</th><th>Product</th><th>Plan</th><th>Status</th><th>Gateway</th><th>Amount</th><th>Period end</th></tr></thead><tbody>';
+    subs.forEach(s=>{
+      const p = DB.findOne('products',{_id:s.productId});
+      const pl = DB.findOne('billingPlans',{_id:s.planId});
+      const ws = s.subjectWorkspaceId?DB.findOne('workspaces',{_id:s.subjectWorkspaceId}):null;
+      html += `<tr><td>${ws?ws.name:s.subjectUserId||'—'}</td>
+        <td>${p?p.name:'—'}</td>
+        <td>${pl?pl.name:'—'}</td>
+        <td><span class="badge badge-${(s.status||'').toLowerCase().replace('_','-')}">${s.status}</span></td>
+        <td>${s.gateway||'—'}</td>
+        <td>${fmtMoney(s.amount, s.currency)}</td>
+        <td>${fmtDate(s.currentPeriodEnd)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    body.appendChild(tbl);
+  }
+  layout({ side:'admin', title:'Subscriptions', sub:subs.length+' total', body });
+});
+
+route('/admin/audit', () => {
+  if(!requireAdmin()) return;
+  const logs = [...DB.all('auditLogs')].sort((a,b)=>b.ts-a.ts).slice(0,200);
+  const body = el('div');
+  body.appendChild(el('div',{class:'card-sub'},'Showing latest 200 entries (immutable)'));
+  if(logs.length === 0){
+    body.appendChild(el('div',{class:'card empty'},'No audit logs yet.'));
+  } else {
+    const tbl = el('div',{class:'tbl-wrap'});
+    let html = '<table><thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Resource</th><th>Outcome</th></tr></thead><tbody>';
+    logs.forEach(l=>{
+      html += `<tr><td>${fmtRelative(l.ts)}</td>
+        <td><span class="mono">${l.action}</span></td>
+        <td>${l.actor.type}${l.actor.id?': '+l.actor.id.slice(0,12):''}</td>
+        <td>${l.resource?l.resource.type+':'+l.resource.id.slice(0,12):'—'}</td>
+        <td><span class="badge badge-${l.outcome==='success'?'active':l.outcome==='failure'?'canceled':'pending'}">${l.outcome}</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    body.appendChild(tbl);
+  }
+  layout({ side:'admin', title:'Audit log', body });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   8. END USER — per-product portal
+   ═══════════════════════════════════════════════════════════════════ */
+function getProduct(pid){ return DB.findOne('products',{_id:pid}); }
+function requireUser(productId){
+  const sess = DB.getSession();
+  if(!sess || sess.productId !== productId){ navigate('/p/'+productId+'/login'); return false; }
+  return true;
+}
+
+route('/p/:pid/login', (params) => {
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const wrap = el('div',{class:'auth-wrap'});
+  const card = el('div',{class:'auth-card', html: `
+    <div class="auth-head">
+      <div class="auth-product-logo">${p.name[0]}</div>
+      <div class="auth-title">Sign in to ${p.name}</div>
+      <div class="auth-sub">Welcome back. Use your YoCore account.</div>
+    </div>
+    <form id="loginForm">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-control" name="email" type="email" required></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required></div>
+      <div id="formErr"></div>
+      <label class="checkbox-row" style="margin-bottom:14px"><input type="checkbox" name="rememberMe"> Remember me for 30 days</label>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+    <div class="auth-foot">
+      <a href="#" onclick="event.preventDefault();navigate('/p/${p._id}/forgot')">Forgot password?</a>
+      <span class="muted"> · </span>
+      Don't have an account? <a href="#" onclick="event.preventDefault();navigate('/p/${p._id}/signup')">Sign up</a>
+      <div style="margin-top:14px"><a href="#" onclick="event.preventDefault();navigate('/')" style="font-size:11px;color:#484f58">← All portals</a></div>
+    </div>
+  `});
+  wrap.appendChild(card);
+  $('#root').innerHTML='';
+  $('#root').appendChild(wrap);
+
+  $('#loginForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const email = normalize(fd.get('email'));
+    const password = fd.get('password');
+    const errEl = $('#formErr');
+    errEl.innerHTML='';
+
+    const u = DB.findOne('users',{emailNormalized:email});
+    if(!u){ errEl.innerHTML='<div class="form-error">⚠️ Invalid credentials</div>'; return; }
+    if(u.lockedUntil && u.lockedUntil > Date.now()){ errEl.innerHTML='<div class="form-error">⚠️ Account locked</div>'; return; }
+    if(!verifyPassword(password, u.passwordHash)){
+      const fa = (u.failedLoginAttempts||0)+1;
+      DB.update('users',u._id,{failedLoginAttempts:fa, lockedUntil:fa>=5?Date.now()+15*60000:null});
+      audit('user.signin',{outcome:'failure', productId:p._id, actor:{type:'user',id:u._id}});
+      errEl.innerHTML='<div class="form-error">⚠️ Invalid credentials</div>';
+      return;
+    }
+    // Check productUsers junction
+    const pu = DB.findOne('productUsers',{userId:u._id, productId:p._id});
+    if(!pu){ errEl.innerHTML='<div class="form-error">⚠️ No '+p.name+' account. <a href="#" onclick="event.preventDefault();navigate(\'/p/'+p._id+'/signup\')">Sign up</a> instead.</div>'; return; }
+    if(pu.status !== 'ACTIVE'){ errEl.innerHTML='<div class="form-error">⚠️ Account suspended</div>'; return; }
+    // Success
+    DB.update('users',u._id,{lastLoginAt:Date.now(), failedLoginAttempts:0, lockedUntil:null});
+    DB.update('productUsers', pu._id, {lastActiveAt:Date.now()});
+    const s = DB.insert('sessions',{
+      userId:u._id, productId:p._id, workspaceId:null,
+      refreshTokenHash: sha256(genToken()),
+      refreshTokenFamilyId: 'rtf_'+genToken().slice(0,8),
+      jwtId: 'jti_'+genToken().slice(0,8),
+      rememberMe: fd.get('rememberMe')==='on',
+      device:{userAgent:navigator.userAgent},
+      refreshExpiresAt: Date.now()+(fd.get('rememberMe')==='on'?30:7)*86400000
+    });
+    DB.setSession({ userId:u._id, sessionId:s._id, role:u.role, productId:p._id });
+    audit('user.signin',{productId:p._id, outcome:'success'});
+    toast('Welcome back');
+    if(!pu.onboarded) navigate('/p/'+p._id+'/onboarding');
+    else navigate('/p/'+p._id);
+  };
+});
+
+route('/p/:pid/signup', (params) => {
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const wrap = el('div',{class:'auth-wrap'});
+  const card = el('div',{class:'auth-card', html: `
+    <div class="auth-head">
+      <div class="auth-product-logo">${p.name[0]}</div>
+      <div class="auth-title">Create your ${p.name} account</div>
+      <div class="auth-sub">Backed by YoCore — one account works across all Yo products.</div>
+    </div>
+    <form id="signupForm">
+      <div class="form-group"><label class="form-label">Full name</label><input class="form-control" name="name" required placeholder="Karim Rahman"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-control" name="email" type="email" required placeholder="you@example.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required minlength="6" placeholder="At least 6 characters"></div>
+      <div id="formErr"></div>
+      <button class="btn btn-primary btn-block" type="submit">Create account</button>
+    </form>
+    <div class="auth-foot">
+      Already have an account? <a href="#" onclick="event.preventDefault();navigate('/p/${p._id}/login')">Sign in</a>
+      <div style="margin-top:14px"><a href="#" onclick="event.preventDefault();navigate('/')" style="font-size:11px;color:#484f58">← All portals</a></div>
+    </div>
+  `});
+  wrap.appendChild(card);
+  $('#root').innerHTML='';
+  $('#root').appendChild(wrap);
+
+  $('#signupForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const email = normalize(fd.get('email'));
+    const password = fd.get('password');
+    const name = fd.get('name');
+    const errEl = $('#formErr');
+    errEl.innerHTML='';
+
+    let u = DB.findOne('users',{emailNormalized:email});
+    let isNewUser = false;
+    if(u){
+      // Existing user — Flow I (verify password, link to product)
+      if(!verifyPassword(password, u.passwordHash)){
+        errEl.innerHTML='<div class="form-error">⚠️ Email exists with different password. Use Sign in or reset your password.</div>';
+        return;
+      }
+      if(DB.findOne('productUsers',{userId:u._id, productId:p._id})){
+        errEl.innerHTML='<div class="form-error">⚠️ You already have a '+p.name+' account. <a href="#" onclick="event.preventDefault();navigate(\'/p/'+p._id+'/login\')">Sign in</a></div>';
+        return;
+      }
+    } else {
+      // New user — Flow F
+      isNewUser = true;
+      u = DB.insert('users',{
+        email, emailNormalized:email,
+        passwordHash: hashPassword(password),
+        passwordUpdatedAt: Date.now(),
+        name: { first: name.split(' ')[0], last: name.split(' ').slice(1).join(' '), display: name },
+        timezone:'Asia/Dhaka', locale:'en-US',
+        status:'UNVERIFIED', emailVerified:false,
+        role:'END_USER',
+        failedLoginAttempts:0, _v:1
+      });
+      audit('user.created',{productId:p._id, actor:{type:'system'}, resource:{type:'user',id:u._id}});
+    }
+    // Link to product
+    DB.insert('productUsers',{
+      userId: u._id, productId: p._id,
+      status:'ACTIVE', joinedAt: Date.now(), lastActiveAt: Date.now(),
+      onboarded:false,
+      preferences:{ notifications:{email:true,inApp:true}, theme:'dark', favorites:[] },
+      productRole:'END_USER'
+    });
+    audit('productuser.linked',{productId:p._id, resource:{type:'productUser',id:u._id}});
+
+    if(isNewUser){
+      // Send verification email
+      const token = genToken();
+      DB.insert('authTokens',{
+        userId: u._id, productId: p._id,
+        type:'email_verify', tokenHash: sha256(token),
+        expiresAt: Date.now()+24*3600000, usedAt:null
+      });
+      const verifyUrl = '#/p/'+p._id+'/verify?token='+token;
+      sendEmail(email, `Verify your ${p.name} email`,
+        `Hi ${name},\n\nWelcome to ${p.name}! Click the button below to verify your email address.\n\nThis link expires in 24 hours.`,
+        [{label:'Verify email', url: verifyUrl, primary: true}]
+      );
+      // Show "check your email" screen
+      const check = el('div',{class:'auth-wrap'});
+      check.innerHTML = `<div class="auth-card" style="text-align:center">
+        <div style="font-size:54px;margin-bottom:12px">📬</div>
+        <div class="auth-title">Check your email</div>
+        <div class="auth-sub" style="margin:14px 0 24px">We sent a verification link to <strong>${email}</strong>. Click the link to activate your account.</div>
+        <div class="alert alert-info"><span class="alert-ico">ℹ️</span><div style="text-align:left">In this demo, no real email is sent — open the inbox via the ✉️ button (bottom-right) to find your verification link.</div></div>
+        <button class="btn btn-secondary btn-block" onclick="openInbox()">Open inbox</button>
+        <div class="auth-foot"><a href="#" onclick="event.preventDefault();navigate('/p/${p._id}/login')">← Back to sign in</a></div>
+      </div>`;
+      $('#root').innerHTML=''; $('#root').appendChild(check);
+    } else {
+      // Existing user — auto-login, no verification needed
+      const s = DB.insert('sessions',{
+        userId:u._id, productId:p._id, workspaceId:null,
+        refreshTokenHash: sha256(genToken()),
+        refreshTokenFamilyId: 'rtf_'+genToken().slice(0,8),
+        jwtId: 'jti_'+genToken().slice(0,8),
+        device:{userAgent:navigator.userAgent},
+        refreshExpiresAt: Date.now()+30*86400000
+      });
+      DB.setSession({ userId:u._id, sessionId:s._id, role:u.role, productId:p._id });
+      toast('Welcome to '+p.name+' — already verified via your YoCore account');
+      navigate('/p/'+p._id+'/onboarding');
+    }
+  };
+});
+
+route('/p/:pid/verify', (params) => {
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const token = new URLSearchParams(window.location.hash.split('?')[1]||'').get('token');
+  if(!token){ navigate('/p/'+p._id+'/login'); return; }
+  const tk = DB.findOne('authTokens',{tokenHash: sha256(token), type:'email_verify'});
+  const wrap = el('div',{class:'auth-wrap'});
+  const card = el('div',{class:'auth-card'});
+
+  if(!tk){
+    card.innerHTML = `<div class="auth-head"><div style="font-size:42px">❌</div><div class="auth-title">Invalid token</div></div>
+      <div class="auth-foot"><a href="#/p/${p._id}/signup">Sign up again</a></div>`;
+  } else if(tk.usedAt){
+    // Idempotent
+    card.innerHTML = `<div class="auth-head"><div style="font-size:42px">✅</div><div class="auth-title">Already verified</div><div class="auth-sub">Your email was verified earlier. You can sign in.</div></div>
+      <button class="btn btn-primary btn-block" onclick="navigate('/p/${p._id}/login')">Sign in</button>`;
+  } else if(tk.expiresAt < Date.now()){
+    card.innerHTML = `<div class="auth-head"><div style="font-size:42px">⏰</div><div class="auth-title">Link expired</div><div class="auth-sub">Please sign up again to receive a new verification email.</div></div>
+      <button class="btn btn-primary btn-block" onclick="navigate('/p/${p._id}/signup')">Sign up again</button>`;
+  } else {
+    // Apply: mark token used, activate user, auto-login
+    DB.update('authTokens', tk._id, { usedAt: Date.now() });
+    DB.update('users', tk.userId, { status:'ACTIVE', emailVerified:true, emailVerifiedAt:Date.now(), emailVerifiedMethod:'email_link' });
+    audit('user.email_verified', {productId:p._id, resource:{type:'user',id:tk.userId}});
+    // Auto-login session
+    const s = DB.insert('sessions',{
+      userId: tk.userId, productId: p._id, workspaceId: null,
+      refreshTokenHash: sha256(genToken()),
+      refreshTokenFamilyId: 'rtf_'+genToken().slice(0,8),
+      jwtId: 'jti_'+genToken().slice(0,8),
+      device:{userAgent:navigator.userAgent},
+      refreshExpiresAt: Date.now()+30*86400000
+    });
+    const u = DB.findOne('users',{_id:tk.userId});
+    DB.setSession({ userId:u._id, sessionId:s._id, role:u.role, productId:p._id });
+    card.innerHTML = `<div class="auth-head"><div style="font-size:42px">🎉</div><div class="auth-title">Email verified</div><div class="auth-sub">Welcome to ${p.name}, ${u.name?.display||u.email}! Let's set up your workspace.</div></div>
+      <button class="btn btn-primary btn-block" onclick="navigate('/p/${p._id}/onboarding')">Continue →</button>`;
+  }
+  wrap.appendChild(card);
+  $('#root').innerHTML=''; $('#root').appendChild(wrap);
+});
+
+route('/p/:pid/forgot', (params) => {
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const wrap = el('div',{class:'auth-wrap'});
+  wrap.innerHTML = `<div class="auth-card">
+    <div class="auth-head"><div class="auth-product-logo">🔑</div><div class="auth-title">Reset your password</div><div class="auth-sub">Enter your email — we'll send a reset link.</div></div>
+    <form id="fpForm">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-control" name="email" type="email" required></div>
+      <button class="btn btn-primary btn-block">Send reset link</button>
+    </form>
+    <div class="auth-foot"><a href="#" onclick="event.preventDefault();navigate('/p/${p._id}/login')">← Back to sign in</a></div>
+  </div>`;
+  $('#root').innerHTML=''; $('#root').appendChild(wrap);
+
+  $('#fpForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const email = normalize(new FormData(e.target).get('email'));
+    const u = DB.findOne('users',{emailNormalized:email});
+    if(u){
+      // invalidate prior tokens
+      DB.find('authTokens',{userId:u._id, type:'password_reset'}).forEach(t=>{ if(!t.usedAt) DB.update('authTokens',t._id,{usedAt:Date.now()}); });
+      const token = genToken();
+      DB.insert('authTokens',{
+        userId:u._id, productId:p._id,
+        type:'password_reset', tokenHash: sha256(token),
+        expiresAt: Date.now()+3600000, usedAt:null
+      });
+      sendEmail(email, `Reset your ${p.name} password`,
+        `Hi,\n\nClick below to set a new password. This link expires in 1 hour.\n\nIf you didn't request this, ignore this email.`,
+        [{label:'Reset password', url:'#/p/'+p._id+'/reset?token='+token, primary:true}]);
+    }
+    // Always show same screen (no enumeration)
+    toast('If that email exists, a reset link was sent');
+    setTimeout(()=>openInbox(), 400);
+  };
+});
+
+route('/p/:pid/reset', (params) => {
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const token = new URLSearchParams(window.location.hash.split('?')[1]||'').get('token');
+  const tk = DB.findOne('authTokens',{tokenHash:sha256(token||''), type:'password_reset'});
+  const wrap = el('div',{class:'auth-wrap'});
+  if(!tk || tk.usedAt || tk.expiresAt < Date.now()){
+    wrap.innerHTML = `<div class="auth-card"><div class="auth-head"><div style="font-size:42px">❌</div><div class="auth-title">Invalid or expired link</div></div>
+      <button class="btn btn-primary btn-block" onclick="navigate('/p/${p._id}/forgot')">Request new link</button></div>`;
+  } else {
+    wrap.innerHTML = `<div class="auth-card">
+      <div class="auth-head"><div class="auth-product-logo">🔑</div><div class="auth-title">Set new password</div></div>
+      <form id="rpForm">
+        <div class="form-group"><label class="form-label">New password</label><input class="form-control" name="password" type="password" required minlength="6"></div>
+        <div class="form-group"><label class="form-label">Confirm</label><input class="form-control" name="confirm" type="password" required></div>
+        <div id="formErr"></div>
+        <button class="btn btn-primary btn-block">Set password</button>
+      </form>
+    </div>`;
+    setTimeout(()=>{
+      $('#rpForm').onsubmit = (e)=>{
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        if(fd.get('password') !== fd.get('confirm')){ $('#formErr').innerHTML='<div class="form-error">⚠️ Passwords don\'t match</div>'; return; }
+        DB.update('authTokens', tk._id, {usedAt:Date.now()});
+        DB.update('users', tk.userId, { passwordHash: hashPassword(fd.get('password')), passwordUpdatedAt:Date.now(), failedLoginAttempts:0, lockedUntil:null });
+        // Revoke all sessions
+        DB.find('sessions',{userId:tk.userId}).forEach(s=>{ if(!s.revokedAt) DB.update('sessions',s._id,{revokedAt:Date.now(), revokedReason:'password_change'}); });
+        audit('user.password_reset',{productId:p._id, resource:{type:'user',id:tk.userId}});
+        toast('✅ Password updated. Please sign in.');
+        navigate('/p/'+p._id+'/login');
+      };
+    }, 0);
+  }
+  $('#root').innerHTML=''; $('#root').appendChild(wrap);
+});
+
+/* ─── Onboarding (create first workspace) ─── */
+route('/p/:pid/onboarding', (params) => {
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const u = DB.findOne('users',{_id:sess.userId});
+  const wrap = el('div',{class:'auth-wrap'});
+  wrap.innerHTML = `<div class="auth-card lg" style="max-width:520px">
+    <div class="auth-head">
+      <div class="auth-product-logo">${p.name[0]}</div>
+      <div class="auth-title">Set up your first workspace</div>
+      <div class="auth-sub">Workspaces let you organize teams, projects and billing inside ${p.name}.</div>
+    </div>
+    <form id="obForm">
+      <div class="form-group"><label class="form-label">Workspace name *</label><input class="form-control" name="name" required placeholder="${u.name?.first||'My'}'s Workspace"></div>
+      <div class="form-group"><label class="form-label">Slug *</label><input class="form-control" name="slug" required pattern="[a-z0-9-]+" placeholder="my-team"></div>
+      <button class="btn btn-primary btn-block">Create workspace →</button>
+    </form>
+  </div>`;
+  $('#root').innerHTML=''; $('#root').appendChild(wrap);
+
+  $('#obForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if(DB.findOne('workspaces',{productId:p._id, slug:fd.get('slug')})) return toast('Slug taken','error');
+    const ws = DB.insert('workspaces',{
+      productId:p._id, name:fd.get('name'), slug:fd.get('slug'),
+      ownerUserId: u._id, billingContactUserId: u._id,
+      status:'ACTIVE', suspended:false, dataDeleted:false,
+      timezone: u.timezone||'Asia/Dhaka', settings:{}
+    });
+    const ownerRole = DB.findOne('roles',{productId:p._id, slug:'OWNER'});
+    DB.insert('workspaceMembers',{
+      workspaceId: ws._id, productId:p._id, userId: u._id,
+      roleId: ownerRole._id, roleSlug:'OWNER', status:'ACTIVE',
+      addedBy: null, joinedAt: Date.now()
+    });
+    DB.update('productUsers', DB.findOne('productUsers',{userId:u._id, productId:p._id})._id, {onboarded:true, lastActiveAt:Date.now()});
+    DB.update('sessions', sess.sessionId, {workspaceId: ws._id});
+    DB.setSession({...sess, workspaceId: ws._id});
+    audit('workspace.created',{productId:p._id, workspaceId:ws._id, resource:{type:'workspace',id:ws._id}});
+    sendEmail(u.email, `Welcome to ${p.name}!`, `Your workspace "${ws.name}" is ready. Pick a plan to unlock the full feature set.`, [{label:'Choose a plan', url:'#/p/'+p._id+'/billing/plans', primary:true}]);
+    toast('Workspace created');
+    navigate('/p/'+p._id+'/billing/plans');
+  };
+});
+
+/* ─── End user dashboard ─── */
+route('/p/:pid', (params) => {
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const u = DB.findOne('users',{_id:sess.userId});
+  const memberships = DB.find('workspaceMembers',{userId:u._id, productId:p._id, status:'ACTIVE'});
+  if(memberships.length === 0){ navigate('/p/'+p._id+'/onboarding'); return; }
+  const ws = DB.findOne('workspaces',{_id: sess.workspaceId || memberships[0].workspaceId});
+  if(!ws){ navigate('/p/'+p._id+'/onboarding'); return; }
+  if(!sess.workspaceId){ DB.setSession({...sess, workspaceId: ws._id}); }
+
+  const sub = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:ws._id});
+  const plan = sub?DB.findOne('billingPlans',{_id:sub.planId}):null;
+  const members = DB.find('workspaceMembers',{workspaceId:ws._id, status:'ACTIVE'});
+  const invitations = DB.find('invitations',{workspaceId:ws._id, status:'PENDING'});
+
+  const body = el('div');
+
+  // Workspace switcher
+  const wsRow = el('div',{class:'flex-between'},
+    el('div',{},
+      el('div',{class:'card-title'}, ws.name + (ws.suspended?' ⚠️':'')),
+      el('div',{class:'card-sub'}, 'Workspace · '+(plan?plan.name+' plan':'No plan')+' · '+members.length+' member(s)')),
+    el('div',{class:'tag-row'},
+      el('select',{class:'form-control',style:'width:auto;min-width:180px',
+        onchange:(e)=>{ DB.setSession({...sess, workspaceId:e.target.value}); render(); }},
+        ...memberships.map(m=>{const w=DB.findOne('workspaces',{_id:m.workspaceId});return el('option',{value:w._id, selected: w._id===ws._id?true:undefined}, w.name);})),
+      el('button',{class:'btn btn-secondary btn-sm', onclick:openCreateWorkspaceModal}, '+ New workspace')
+    ));
+  body.appendChild(wsRow);
+
+  if(ws.suspended){
+    body.appendChild(el('div',{class:'alert alert-danger',html:`<span class="alert-ico">⚠️</span><div><strong>Workspace suspended</strong> (${ws.suspensionReason||'unknown'}). Reactivate to restore access. <button class="btn btn-primary btn-sm" style="margin-left:10px" onclick="navigate('/p/${p._id}/billing')">Fix billing →</button></div>`}));
+  }
+
+  // Quick stats
+  const stats = el('div',{class:'stats',html:`
+    <div class="stat"><div class="stat-label">Plan</div><div class="stat-value" style="font-size:18px">${plan?plan.name:'None'}</div><div class="stat-sub ${sub&&sub.status==='ACTIVE'?'':'warn'}">${sub?sub.status:'Free tier'}</div></div>
+    <div class="stat"><div class="stat-label">Members</div><div class="stat-value">${members.length}<span style="font-size:14px;color:#484f58">/${plan&&plan.limits.maxMembers!==-1?plan.limits.maxMembers:'∞'}</span></div></div>
+    <div class="stat"><div class="stat-label">Pending invites</div><div class="stat-value">${invitations.length}</div></div>
+    <div class="stat"><div class="stat-label">Next renewal</div><div class="stat-value" style="font-size:14px">${sub?fmtDate(sub.currentPeriodEnd):'—'}</div></div>
+  `});
+  body.appendChild(stats);
+
+  // Quick actions
+  body.appendChild(el('div',{class:'card', html: `
+    <div class="card-title">Quick actions</div>
+    <div class="tag-row" style="margin-top:10px">
+      <button class="btn btn-secondary" onclick="openInviteModal('${ws._id}')">👥 Invite members</button>
+      <button class="btn btn-secondary" onclick="navigate('/p/${p._id}/billing/plans')">💳 Change plan</button>
+      <button class="btn btn-secondary" onclick="navigate('/p/${p._id}/billing')">📄 Billing history</button>
+      <button class="btn btn-secondary" onclick="navigate('/p/${p._id}/settings')">⚙️ Settings</button>
+    </div>
+  `}));
+
+  // Members list
+  body.appendChild(el('div',{class:'section-title'},'Workspace members'));
+  members.forEach(m=>{
+    const mu = DB.findOne('users',{_id:m.userId});
+    body.appendChild(el('div',{class:'list-item',html:`
+      <div class="list-item-info">
+        <div class="list-item-title">${mu.name?.display||mu.email} <span class="badge badge-${m.roleSlug==='OWNER'?'active':'inactive'}">${m.roleSlug}</span> ${m.userId===u._id?'<span class="badge badge-trial">You</span>':''}</div>
+        <div class="list-item-sub">${mu.email} · joined ${fmtRelative(m.joinedAt)}</div>
+      </div>
+    `}));
+  });
+
+  // Pending invitations
+  if(invitations.length){
+    body.appendChild(el('div',{class:'section-title'},'Pending invitations'));
+    invitations.forEach(inv=>{
+      body.appendChild(el('div',{class:'list-item',html:`
+        <div class="list-item-info">
+          <div class="list-item-title">${inv.email} <span class="badge badge-pending">${inv.roleSlug}</span></div>
+          <div class="list-item-sub">Sent ${fmtRelative(inv.lastSentAt||inv.createdAt)} · expires ${fmtRelative(inv.expiresAt)}</div>
+        </div>
+        <div><button class="btn btn-ghost btn-sm" onclick="revokeInvite('${inv._id}')">Revoke</button></div>
+      `}));
+    });
+  }
+
+  layout({ side:{product:p}, title:'Dashboard', sub:p.name, body });
+});
+
+window.openCreateWorkspaceModal = function(){
+  const sess = DB.getSession();
+  const u = DB.findOne('users',{_id:sess.userId});
+  const p = getProduct(sess.productId);
+  // Check plan limit
+  const sub = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:sess.workspaceId});
+  const plan = sub?DB.findOne('billingPlans',{_id:sub.planId}):null;
+  const owned = DB.find('workspaces',{productId:p._id, ownerUserId:u._id}).length;
+  if(plan && plan.limits.maxWorkspaces !== -1 && owned >= plan.limits.maxWorkspaces){
+    return toast('Plan limit reached: '+plan.limits.maxWorkspaces+' workspaces','error');
+  }
+  openModal(`
+    <div class="modal-head"><div class="modal-title">Create workspace</div><span class="modal-close" onclick="closeModal()">×</span></div>
+    <div class="modal-body">
+      <form id="cwForm">
+        <div class="form-group"><label class="form-label">Name *</label><input class="form-control" name="name" required></div>
+        <div class="form-group"><label class="form-label">Slug *</label><input class="form-control" name="slug" required pattern="[a-z0-9-]+"></div>
+      </form>
+    </div>
+    <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="submitCreateWorkspace()">Create</button></div>
+  `);
+};
+window.submitCreateWorkspace = function(){
+  const sess = DB.getSession();
+  const u = DB.findOne('users',{_id:sess.userId});
+  const p = getProduct(sess.productId);
+  const fd = new FormData($('#cwForm'));
+  if(DB.findOne('workspaces',{productId:p._id, slug:fd.get('slug')})) return toast('Slug taken','error');
+  const ws = DB.insert('workspaces',{
+    productId:p._id, name:fd.get('name'), slug:fd.get('slug'),
+    ownerUserId:u._id, billingContactUserId:u._id,
+    status:'ACTIVE', suspended:false, dataDeleted:false,
+    timezone:u.timezone||'Asia/Dhaka', settings:{}
+  });
+  const ownerRole = DB.findOne('roles',{productId:p._id, slug:'OWNER'});
+  DB.insert('workspaceMembers',{
+    workspaceId:ws._id, productId:p._id, userId:u._id,
+    roleId:ownerRole._id, roleSlug:'OWNER', status:'ACTIVE', joinedAt:Date.now()
+  });
+  audit('workspace.created',{productId:p._id, workspaceId:ws._id});
+  DB.setSession({...sess, workspaceId:ws._id});
+  closeModal();
+  toast('Workspace created');
+  render();
+};
+
+window.openInviteModal = function(workspaceId){
+  const sess = DB.getSession();
+  const ws = DB.findOne('workspaces',{_id:workspaceId});
+  const p = getProduct(sess.productId);
+  const sub = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:workspaceId});
+  const plan = sub?DB.findOne('billingPlans',{_id:sub.planId}):null;
+  const memberCount = DB.find('workspaceMembers',{workspaceId, status:'ACTIVE'}).length;
+  const limit = plan?plan.limits.maxMembers:5;
+  if(limit !== -1 && memberCount >= limit){
+    openModal(`<div class="modal-head"><div class="modal-title">Seat limit reached</div><span class="modal-close" onclick="closeModal()">×</span></div>
+      <div class="modal-body">
+        <div class="alert alert-warn"><span class="alert-ico">⚠️</span><div>Your plan allows ${limit} members. Upgrade to invite more.</div></div>
+        <button class="btn btn-primary btn-block" onclick="closeModal();navigate('/p/${p._id}/billing/plans')">View plans →</button>
+      </div>`);
+    return;
+  }
+  const roles = DB.find('roles',{productId:p._id}).filter(r=>r.slug!=='OWNER');
+  openModal(`
+    <div class="modal-head"><div class="modal-title">Invite to ${ws.name}</div><span class="modal-close" onclick="closeModal()">×</span></div>
+    <div class="modal-body">
+      <form id="invForm">
+        <div class="form-group"><label class="form-label">Email *</label><input class="form-control" name="email" type="email" required></div>
+        <div class="form-group"><label class="form-label">Role</label>
+          <select class="form-control" name="roleSlug">${roles.map(r=>`<option value="${r.slug}">${r.name}</option>`).join('')}</select>
+        </div>
+        <div class="form-help">${memberCount}/${limit===-1?'∞':limit} seats used. Invitee receives an email with a 72-hour link.</div>
+      </form>
+    </div>
+    <div class="modal-foot"><button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="submitInvite('${workspaceId}')">Send invite</button></div>
+  `);
+};
+window.submitInvite = function(workspaceId){
+  const fd = new FormData($('#invForm'));
+  const email = normalize(fd.get('email'));
+  const sess = DB.getSession();
+  const ws = DB.findOne('workspaces',{_id:workspaceId});
+  const p = getProduct(sess.productId);
+  // Check duplicate
+  if(DB.findOne('invitations',{workspaceId, email, status:'PENDING'})) return toast('Already invited','error');
+  // Check existing member
+  const existing = DB.findOne('users',{emailNormalized:email});
+  if(existing && DB.findOne('workspaceMembers',{workspaceId, userId:existing._id, status:'ACTIVE'})) return toast('Already a member','error');
+  const role = DB.findOne('roles',{productId:p._id, slug:fd.get('roleSlug')});
+  const token = genToken();
+  const inv = DB.insert('invitations',{
+    productId:p._id, workspaceId, email,
+    roleId: role._id, roleSlug: role.slug,
+    invitedBy: sess.userId,
+    tokenHash: sha256(token),
+    isExistingUser: !!existing,
+    status:'PENDING',
+    expiresAt: Date.now()+72*3600000,
+    resendCount:0, lastSentAt:Date.now()
+  });
+  audit('invitation.sent',{productId:p._id, workspaceId, resource:{type:'invitation',id:inv._id}});
+  const url = existing
+    ? '#/p/'+p._id+'/invite-accept?token='+token
+    : '#/p/'+p._id+'/invite-signup?token='+token;
+  sendEmail(email, `You're invited to ${ws.name} on ${p.name}`,
+    `${DB.findOne('users',{_id:sess.userId}).name?.display||'Someone'} invited you to join the workspace "${ws.name}" as ${role.slug}.\n\nThis invite expires in 72 hours.`,
+    [{label:'Accept invitation', url, primary:true}]);
+  closeModal();
+  toast('Invitation sent');
+  render();
+};
+window.revokeInvite = function(id){
+  DB.update('invitations', id, {status:'REVOKED', revokedAt:Date.now()});
+  audit('invitation.revoked',{resource:{type:'invitation',id}});
+  toast('Invitation revoked');
+  render();
+};
+
+route('/p/:pid/invite-accept', (params)=>{
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const token = new URLSearchParams(window.location.hash.split('?')[1]||'').get('token');
+  const inv = DB.findOne('invitations',{tokenHash:sha256(token||''), status:'PENDING'});
+  const wrap = el('div',{class:'auth-wrap'});
+  if(!inv || inv.expiresAt < Date.now()){
+    wrap.innerHTML = `<div class="auth-card"><div class="auth-head"><div style="font-size:42px">❌</div><div class="auth-title">Invalid or expired</div></div></div>`;
+    $('#root').innerHTML=''; $('#root').appendChild(wrap); return;
+  }
+  const ws = DB.findOne('workspaces',{_id:inv.workspaceId});
+  const sess = DB.getSession();
+  const meAlready = sess && sess.productId === p._id && DB.findOne('users',{_id:sess.userId})?.emailNormalized === inv.email;
+
+  if(!meAlready){
+    // Need to sign in first
+    wrap.innerHTML = `<div class="auth-card">
+      <div class="auth-head"><div style="font-size:42px">📨</div><div class="auth-title">Join ${ws.name}</div><div class="auth-sub">Sign in as <strong>${inv.email}</strong> to accept this invitation as <strong>${inv.roleSlug}</strong>.</div></div>
+      <form id="acForm">
+        <div class="form-group"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required></div>
+        <div id="formErr"></div>
+        <button class="btn btn-primary btn-block">Accept & sign in</button>
+      </form>
+    </div>`;
+    $('#root').innerHTML=''; $('#root').appendChild(wrap);
+    $('#acForm').onsubmit = (e)=>{
+      e.preventDefault();
+      const pw = new FormData(e.target).get('password');
+      const u = DB.findOne('users',{emailNormalized:inv.email});
+      if(!u || !verifyPassword(pw, u.passwordHash)){ $('#formErr').innerHTML='<div class="form-error">⚠️ Wrong password</div>'; return; }
+      acceptInvitationFor(u, inv, p);
+    };
+  } else {
+    acceptInvitationFor(DB.findOne('users',{_id:sess.userId}), inv, p);
+  }
+});
+
+function acceptInvitationFor(u, inv, p){
+  // Add membership
+  if(!DB.findOne('workspaceMembers',{workspaceId:inv.workspaceId, userId:u._id})){
+    DB.insert('workspaceMembers',{
+      workspaceId: inv.workspaceId, productId:p._id, userId:u._id,
+      roleId: inv.roleId, roleSlug: inv.roleSlug,
+      status:'ACTIVE', addedBy: inv.invitedBy, joinedAt: Date.now()
+    });
+  }
+  // Ensure productUser
+  if(!DB.findOne('productUsers',{userId:u._id, productId:p._id})){
+    DB.insert('productUsers',{userId:u._id, productId:p._id, status:'ACTIVE', joinedAt:Date.now(), onboarded:true,
+      preferences:{notifications:{email:true,inApp:true},theme:'dark'}, productRole:'END_USER'});
+  } else {
+    DB.update('productUsers', DB.findOne('productUsers',{userId:u._id, productId:p._id})._id, {onboarded:true});
+  }
+  DB.update('invitations', inv._id, {status:'ACCEPTED', acceptedAt:Date.now(), acceptedByUserId:u._id});
+  audit('invitation.accepted',{productId:p._id, workspaceId:inv.workspaceId, resource:{type:'invitation',id:inv._id}});
+
+  // Auto-login if not already
+  let sess = DB.getSession();
+  if(!sess || sess.userId !== u._id || sess.productId !== p._id){
+    const s = DB.insert('sessions',{
+      userId:u._id, productId:p._id, workspaceId:inv.workspaceId,
+      refreshTokenHash: sha256(genToken()), refreshTokenFamilyId:'rtf_'+genToken().slice(0,8),
+      jwtId:'jti_'+genToken().slice(0,8), device:{userAgent:navigator.userAgent},
+      refreshExpiresAt: Date.now()+30*86400000
+    });
+    DB.setSession({userId:u._id, sessionId:s._id, role:u.role, productId:p._id, workspaceId:inv.workspaceId});
+  } else {
+    DB.update('sessions', sess.sessionId, {workspaceId: inv.workspaceId});
+    DB.setSession({...sess, workspaceId: inv.workspaceId});
+  }
+  toast('Welcome to the workspace!');
+  navigate('/p/'+p._id);
+}
+
+route('/p/:pid/invite-signup', (params)=>{
+  const p = getProduct(params.pid);
+  if(!p) return navigate('/');
+  const token = new URLSearchParams(window.location.hash.split('?')[1]||'').get('token');
+  const inv = DB.findOne('invitations',{tokenHash:sha256(token||''), status:'PENDING'});
+  if(!inv || inv.expiresAt<Date.now()){
+    setHTML(''); const w = el('div',{class:'auth-wrap'}); w.innerHTML=`<div class="auth-card"><div class="auth-head"><div style="font-size:42px">❌</div><div class="auth-title">Invalid invitation</div></div></div>`; $('#root').appendChild(w); return;
+  }
+  const ws = DB.findOne('workspaces',{_id:inv.workspaceId});
+  const wrap = el('div',{class:'auth-wrap'});
+  wrap.innerHTML = `<div class="auth-card">
+    <div class="auth-head"><div style="font-size:42px">📨</div><div class="auth-title">Join ${ws.name}</div><div class="auth-sub">Create your ${p.name} account for <strong>${inv.email}</strong></div></div>
+    <form id="isForm">
+      <div class="form-group"><label class="form-label">Full name</label><input class="form-control" name="name" required></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-control" name="password" type="password" required minlength="6"></div>
+      <button class="btn btn-primary btn-block">Create account & join</button>
+    </form>
+  </div>`;
+  $('#root').innerHTML=''; $('#root').appendChild(wrap);
+  $('#isForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    // Create verified user (invitation = trust)
+    const u = DB.insert('users',{
+      email: inv.email, emailNormalized: inv.email,
+      passwordHash: hashPassword(fd.get('password')), passwordUpdatedAt:Date.now(),
+      name:{first:fd.get('name').split(' ')[0], last:fd.get('name').split(' ').slice(1).join(' '), display:fd.get('name')},
+      timezone:'Asia/Dhaka', locale:'en-US',
+      status:'ACTIVE', emailVerified:true, emailVerifiedAt:Date.now(), emailVerifiedMethod:'invitation',
+      role:'END_USER', failedLoginAttempts:0, _v:1
+    });
+    audit('user.created.via.invitation',{productId:p._id, resource:{type:'user',id:u._id}});
+    acceptInvitationFor(u, inv, p);
+  };
+});
+
+/* ─── End user: Billing ─── */
+route('/p/:pid/billing', (params)=>{
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const ws = DB.findOne('workspaces',{_id:sess.workspaceId});
+  const sub = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:ws._id});
+  const plan = sub?DB.findOne('billingPlans',{_id:sub.planId}):null;
+  const body = el('div');
+
+  if(!sub){
+    body.appendChild(el('div',{class:'card', html:`
+      <div class="card-title">No active subscription</div>
+      <div class="card-sub">Pick a plan to unlock paid features and increase your member limit.</div>
+      <button class="btn btn-primary" onclick="navigate('/p/${p._id}/billing/plans')">View plans →</button>
+    `}));
+  } else {
+    body.appendChild(el('div',{class:'card', html:`
+      <div class="flex-between" style="margin-bottom:14px">
+        <div><div class="card-title">${plan.name} <span class="badge badge-${sub.status.toLowerCase().replace('_','-')}">${sub.status}</span></div>
+        <div class="card-sub">${fmtMoney(sub.amount, sub.currency)} / ${plan.interval} via ${sub.gateway||'free'}</div></div>
+        <div class="tag-row">
+          <button class="btn btn-secondary btn-sm" onclick="navigate('/p/${p._id}/billing/plans')">Change plan</button>
+          ${sub.status!=='CANCELED'?'<button class="btn btn-danger btn-sm" onclick="cancelSubscription(\''+sub._id+'\')">Cancel</button>':''}
+        </div>
+      </div>
+      ${sub.status==='TRIALING'?`<div class="alert alert-info"><span class="alert-ico">⏱️</span><div>Trial ends ${fmtDate(sub.trialEndsAt)} (${Math.ceil((sub.trialEndsAt-Date.now())/86400000)} days left)</div></div>`:''}
+      ${sub.status==='PAST_DUE'?`<div class="alert alert-danger"><span class="alert-ico">⚠️</span><div>Payment failed on ${fmtDate(sub.paymentFailedAt)}. Update your payment method to avoid suspension.<br><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="retryPayment('${sub._id}')">Retry payment</button></div></div>`:''}
+      <div class="card-row"><span class="card-row-label">Current period</span><span class="card-row-value">${fmtDate(sub.currentPeriodStart)} → ${fmtDate(sub.currentPeriodEnd)}</span></div>
+      <div class="card-row"><span class="card-row-label">Quantity (seats)</span><span class="card-row-value">${sub.quantity}</span></div>
+      <div class="card-row"><span class="card-row-label">Gateway</span><span class="card-row-value">${sub.gateway||'—'}</span></div>
+      <div class="card-row"><span class="card-row-label">Plan limits</span><span class="card-row-value">${plan.limits.maxMembers===-1?'∞':plan.limits.maxMembers} members · ${plan.limits.maxWorkspaces===-1?'∞':plan.limits.maxWorkspaces} workspaces</span></div>
+    `}));
+    // Demo controls
+    body.appendChild(el('div',{class:'card',html:`
+      <div class="card-title" style="font-size:13px;color:#484f58">🧪 Demo: simulate webhooks</div>
+      <div class="card-sub">In a real system these come from Stripe/SSLCommerz. Here you trigger them manually to see lifecycle behavior.</div>
+      <div class="tag-row" style="margin-top:10px">
+        ${sub.status==='ACTIVE'||sub.status==='TRIALING'?'<button class="btn btn-secondary btn-sm" onclick="simulatePaymentFailure(\''+sub._id+'\')">Simulate payment failure</button>':''}
+        ${sub.status==='PAST_DUE'?'<button class="btn btn-secondary btn-sm" onclick="simulateGracePeriodEnd(\''+sub._id+'\')">Simulate Day 8 (suspend)</button>':''}
+        ${sub.status==='CANCELED'?'<button class="btn btn-secondary btn-sm" onclick="simulateReactivation(\''+sub._id+'\')">Reactivate (pre Day 85)</button>':''}
+      </div>
+    `}));
+  }
+
+  layout({ side:{product:p}, title:'Billing', sub:'Manage your subscription', body });
+});
+
+route('/p/:pid/billing/plans', (params)=>{
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const ws = DB.findOne('workspaces',{_id:sess.workspaceId});
+  const plans = DB.find('billingPlans',{productId:p._id, status:'ACTIVE'});
+  const currentSub = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:ws._id});
+
+  const body = el('div');
+  body.appendChild(el('div',{class:'card-sub', style:'margin-bottom:18px'}, 'Choose a plan for "'+ws.name+'"'));
+  if(plans.length===0){
+    body.appendChild(el('div',{class:'card empty'},'No plans available yet. The product owner needs to publish plans in the admin portal.'));
+  } else {
+    const grid = el('div',{style:'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px'});
+    plans.forEach(pl=>{
+      const isCurrent = currentSub && currentSub.planId === pl._id;
+      const card = el('div',{class:'card', style: isCurrent?'border-color:#3fb950':'cursor:pointer'});
+      card.innerHTML = `
+        <div class="card-title">${pl.name}${isCurrent?' <span class="badge badge-active">Current</span>':''}</div>
+        <div style="font-size:30px;font-weight:800;color:#c9d1d9;margin:10px 0">${pl.isFree?'Free':fmtMoney(pl.amount,pl.currency)}<span style="font-size:13px;color:#484f58;font-weight:400"> / ${pl.interval}</span></div>
+        <div class="card-sub">${pl.description||''}</div>
+        <div style="margin:14px 0;font-size:12px;color:#8b949e">
+          ✓ Up to ${pl.limits.maxMembers===-1?'unlimited':pl.limits.maxMembers} members<br>
+          ✓ Up to ${pl.limits.maxWorkspaces===-1?'unlimited':pl.limits.maxWorkspaces} workspaces<br>
+          ${pl.trialDays?'✓ '+pl.trialDays+'-day free trial<br>':''}
+        </div>
+        ${isCurrent?'<button class="btn btn-secondary btn-block" disabled>Current plan</button>':
+          pl.isFree
+            ? '<button class="btn btn-secondary btn-block" onclick="subscribeToFreePlan(\''+pl._id+'\')">Switch to '+pl.name+'</button>'
+            : '<button class="btn btn-primary btn-block" onclick="openCheckout(\''+pl._id+'\')">'+(currentSub?'Change to ':'Subscribe to ')+pl.name+'</button>'
+        }
+      `;
+      grid.appendChild(card);
+    });
+    body.appendChild(grid);
+  }
+
+  layout({ side:{product:p}, title:'Plans', sub:'Pick what fits your team', body });
+});
+
+window.subscribeToFreePlan = function(planId){
+  const sess = DB.getSession();
+  const p = getProduct(sess.productId);
+  const ws = DB.findOne('workspaces',{_id:sess.workspaceId});
+  const pl = DB.findOne('billingPlans',{_id:planId});
+  const existing = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:ws._id});
+  if(existing){
+    DB.update('subscriptions', existing._id, {planId, amount:0, currency:pl.currency, gateway:null, status:'ACTIVE'});
+    audit('subscription.plan_changed',{productId:p._id, workspaceId:ws._id, metadata:{newPlanId:planId}});
+  } else {
+    DB.insert('subscriptions',{
+      productId:p._id, planId,
+      subjectType:'workspace', subjectWorkspaceId:ws._id, subjectUserId:null,
+      gateway:null, gatewayRefs:{}, status:'ACTIVE',
+      currentPeriodStart:Date.now(), currentPeriodEnd:null,
+      quantity:1, amount:0, currency:pl.currency,
+      graceEmailsSent:{day1:false,day5:false,day7:false}
+    });
+    audit('subscription.activated',{productId:p._id, workspaceId:ws._id, metadata:{planId, free:true}});
+  }
+  toast('Subscribed to '+pl.name);
+  navigate('/p/'+p._id+'/billing');
+};
+
+window.openCheckout = function(planId){
+  const sess = DB.getSession();
+  const p = getProduct(sess.productId);
+  const pl = DB.findOne('billingPlans',{_id:planId});
+  // Resolve gateway
+  const gatewayName = p.billingConfig.gatewayRouting[pl.currency] || p.billingConfig.gatewayRouting.default;
+  const gateway = DB.findOne('paymentGateways',{productId:p._id, provider:gatewayName, status:'ACTIVE'});
+  if(!gateway){
+    return openModal(`<div class="modal-head"><div class="modal-title">No gateway configured</div><span class="modal-close" onclick="closeModal()">×</span></div>
+      <div class="modal-body"><div class="alert alert-warn"><span class="alert-ico">⚠️</span><div>The product owner hasn't configured a ${gatewayName} gateway yet. Cannot process payment.</div></div></div>`);
+  }
+  openModal(`
+    <div class="modal-head"><div class="modal-title">Checkout — ${pl.name}</div><span class="modal-close" onclick="closeModal()">×</span></div>
+    <div class="modal-body">
+      <div class="alert alert-info"><span class="alert-ico">🔒</span><div>Routed to <strong>${gateway.provider.toUpperCase()}</strong> (${gateway.mode}) per ${pl.currency.toUpperCase()} routing rule. Real Stripe Checkout would open in a new tab.</div></div>
+      <div class="card-row"><span class="card-row-label">Plan</span><span class="card-row-value">${pl.name}</span></div>
+      <div class="card-row"><span class="card-row-label">Amount</span><span class="card-row-value">${fmtMoney(pl.amount,pl.currency)} / ${pl.interval}</span></div>
+      <div class="card-row"><span class="card-row-label">Trial</span><span class="card-row-value">${pl.trialDays?pl.trialDays+' days free':'No trial'}</span></div>
+      <div class="card-row"><span class="card-row-label">Gateway</span><span class="card-row-value">${gateway.displayName||gateway.provider}</span></div>
+      <div class="form-group" style="margin-top:18px">
+        <label class="form-label">Card number (mock)</label>
+        <input class="form-control" value="4242 4242 4242 4242" readonly>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Expiry</label><input class="form-control" value="12/29" readonly></div>
+        <div class="form-group"><label class="form-label">CVC</label><input class="form-control" value="123" readonly></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="completeCheckout('${planId}','${gateway.provider}')">Pay ${fmtMoney(pl.amount,pl.currency)}</button>
+    </div>
+  `);
+};
+window.completeCheckout = function(planId, gateway){
+  const sess = DB.getSession();
+  const p = getProduct(sess.productId);
+  const ws = DB.findOne('workspaces',{_id:sess.workspaceId});
+  const pl = DB.findOne('billingPlans',{_id:planId});
+  const u = DB.findOne('users',{_id:sess.userId});
+  // simulate webhook handling
+  const existing = DB.findOne('subscriptions',{productId:p._id, subjectWorkspaceId:ws._id});
+  const periodEnd = Date.now()+(pl.interval==='year'?365:30)*86400000;
+  const subData = {
+    productId:p._id, planId,
+    subjectType:'workspace', subjectWorkspaceId:ws._id, subjectUserId:null,
+    gateway, gatewayRefs:{
+      stripeCustomerId:'cus_'+genToken().slice(0,12),
+      stripeSubscriptionId:'sub_'+genToken().slice(0,12),
+      stripeLatestInvoiceId:'in_'+genToken().slice(0,12)
+    },
+    status: pl.trialDays?'TRIALING':'ACTIVE',
+    cancelAtPeriodEnd:false,
+    currentPeriodStart:Date.now(),
+    currentPeriodEnd: pl.trialDays?Date.now()+pl.trialDays*86400000:periodEnd,
+    trialStartsAt: pl.trialDays?Date.now():null,
+    trialEndsAt: pl.trialDays?Date.now()+pl.trialDays*86400000:null,
+    quantity:1,
+    paymentFailedAt:null,
+    graceEmailsSent:{day1:false,day5:false,day7:false},
+    amount: pl.amount, currency: pl.currency,
+    lastWebhookEventId: 'evt_'+genToken().slice(0,12),
+    lastWebhookProcessedAt: Date.now()
+  };
+  let sub;
+  if(existing){
+    sub = DB.update('subscriptions', existing._id, subData);
+    audit('subscription.plan_changed',{productId:p._id, workspaceId:ws._id, metadata:{newPlanId:planId, gateway}});
+  } else {
+    sub = DB.insert('subscriptions', subData);
+    audit('subscription.activated',{productId:p._id, workspaceId:ws._id, metadata:{planId, gateway}, resource:{type:'subscription',id:sub._id}});
+  }
+  // Webhook delivery record
+  DB.insert('webhookDeliveries',{productId:p._id, event:'subscription.activated', eventId:'evt_'+genToken().slice(0,8), url:p.webhookUrl, payload:{subscriptionId:sub._id}, status:'DELIVERED', attemptCount:1, deliveredAt:Date.now()});
+  // Email
+  sendEmail(u.email, `Subscription activated — ${pl.name}`, `Your ${p.name} subscription to ${pl.name} is now active${pl.trialDays?' (trial '+pl.trialDays+' days)':''}.\n\nNext billing: ${fmtDate(sub.currentPeriodEnd)}`, []);
+  closeModal();
+  toast('✅ Payment successful');
+  navigate('/p/'+p._id+'/billing');
+};
+
+window.cancelSubscription = function(id){
+  if(!confirm('Cancel this subscription? You\'ll keep access until the end of the billing period.')) return;
+  const sub = DB.findOne('subscriptions',{_id:id});
+  DB.update('subscriptions', id, {status:'CANCELED', canceledAt:Date.now(), cancelReason:'user_requested', cancelAtPeriodEnd:true});
+  audit('subscription.canceled',{productId:sub.productId, workspaceId:sub.subjectWorkspaceId, metadata:{reason:'user_requested'}});
+  toast('Subscription canceled');
+  render();
+};
+
+window.simulatePaymentFailure = function(id){
+  const sub = DB.findOne('subscriptions',{_id:id});
+  DB.update('subscriptions', id, {status:'PAST_DUE', paymentFailedAt:Date.now(), graceEmailsSent:{day1:true,day5:false,day7:false}});
+  audit('subscription.payment_failed',{productId:sub.productId, workspaceId:sub.subjectWorkspaceId});
+  const ws = DB.findOne('workspaces',{_id:sub.subjectWorkspaceId});
+  const u = DB.findOne('users',{_id:ws.billingContactUserId});
+  sendEmail(u.email, '⚠️ Payment failed', `We couldn't charge your card for ${ws.name}. Please update your payment method within 7 days to avoid suspension.`, [{label:'Update payment', url:'#/p/'+sub.productId+'/billing', primary:true}]);
+  toast('💥 Payment failure simulated → status PAST_DUE');
+  render();
+};
+window.simulateGracePeriodEnd = function(id){
+  const sub = DB.findOne('subscriptions',{_id:id});
+  DB.update('subscriptions', id, {status:'CANCELED', canceledAt:Date.now(), cancelReason:'payment_failed'});
+  DB.update('workspaces', sub.subjectWorkspaceId, {suspended:true, suspensionDate:Date.now(), suspensionReason:'payment_failed', status:'SUSPENDED'});
+  audit('workspace.suspended',{productId:sub.productId, workspaceId:sub.subjectWorkspaceId, metadata:{reason:'payment_failed'}});
+  toast('🚫 Grace period ended → workspace SUSPENDED');
+  render();
+};
+window.simulateReactivation = function(id){
+  const sub = DB.findOne('subscriptions',{_id:id});
+  const periodEnd = Date.now()+30*86400000;
+  DB.update('subscriptions', id, {
+    status:'ACTIVE', paymentFailedAt:null,
+    graceEmailsSent:{day1:false,day5:false,day7:false},
+    currentPeriodStart:Date.now(), currentPeriodEnd:periodEnd,
+    canceledAt:null, cancelReason:null
+  });
+  DB.update('workspaces', sub.subjectWorkspaceId, {suspended:false, suspensionDate:null, suspensionReason:null, suspensionWarning30Sent:false, suspensionWarning60Sent:false, status:'ACTIVE'});
+  audit('subscription.reactivated',{productId:sub.productId, workspaceId:sub.subjectWorkspaceId});
+  toast('✅ Reactivated — same subscription doc restored');
+  render();
+};
+window.retryPayment = function(id){
+  window.simulateReactivation(id);
+};
+
+/* ─── End user: Workspaces list ─── */
+route('/p/:pid/workspaces', (params)=>{
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const memberships = DB.find('workspaceMembers',{userId:sess.userId, productId:p._id, status:'ACTIVE'});
+  const body = el('div');
+  body.appendChild(el('div',{class:'flex-between'},
+    el('div',{},el('div',{class:'card-title'},'Your workspaces'),el('div',{class:'card-sub'},memberships.length+' membership(s)')),
+    el('button',{class:'btn btn-primary',onclick:openCreateWorkspaceModal},'+ New workspace')));
+  memberships.forEach(m=>{
+    const ws = DB.findOne('workspaces',{_id:m.workspaceId});
+    if(!ws) return;
+    body.appendChild(el('div',{class:'list-item', html:`
+      <div class="list-item-info">
+        <div class="list-item-title">${ws.name} <span class="badge badge-${ws.status.toLowerCase()}">${ws.status}</span> <span class="badge badge-inactive">${m.roleSlug}</span></div>
+        <div class="list-item-sub">${DB.find('workspaceMembers',{workspaceId:ws._id,status:'ACTIVE'}).length} member(s) · created ${fmtRelative(ws.createdAt)}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="switchWs('${ws._id}')">Open</button>
+    `}));
+  });
+  layout({ side:{product:p}, title:'Workspaces', body });
+});
+window.switchWs = function(id){
+  const sess = DB.getSession();
+  DB.update('sessions', sess.sessionId, {workspaceId:id});
+  DB.setSession({...sess, workspaceId:id});
+  navigate('/p/'+sess.productId);
+};
+
+/* ─── End user: Settings (account + sessions + danger) ─── */
+route('/p/:pid/settings', (params)=>{
+  if(!requireUser(params.pid)) return;
+  const p = getProduct(params.pid);
+  const sess = DB.getSession();
+  const u = DB.findOne('users',{_id:sess.userId});
+  const sessions = DB.find('sessions',{userId:u._id}).filter(s=>!s.revokedAt);
+  const body = el('div');
+
+  body.appendChild(el('div',{class:'card', html:`
+    <div class="card-title">Profile</div>
+    <form id="profForm">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">First name</label><input class="form-control" name="first" value="${u.name?.first||''}"></div>
+        <div class="form-group"><label class="form-label">Last name</label><input class="form-control" name="last" value="${u.name?.last||''}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-control" value="${u.email}" disabled></div>
+      <button class="btn btn-primary btn-sm">Save profile</button>
+    </form>
+  `}));
+
+  body.appendChild(el('div',{class:'card', html:`
+    <div class="card-title">Change password</div>
+    <form id="pwForm">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Current password</label><input class="form-control" name="cur" type="password" required></div>
+        <div class="form-group"><label class="form-label">New password</label><input class="form-control" name="new" type="password" required minlength="6"></div>
+      </div>
+      <div id="pwErr"></div>
+      <button class="btn btn-primary btn-sm">Update password</button>
+    </form>
+  `}));
+
+  body.appendChild(el('div',{class:'card', html:`
+    <div class="card-title">Active sessions <span class="badge badge-inactive">${sessions.length}</span></div>
+    <div class="card-sub">Sign out of all devices to revoke every session.</div>
+    ${sessions.map(s=>`<div class="list-item"><div class="list-item-info">
+      <div class="list-item-title">${s.device?.userAgent?.slice(0,60)||'Unknown'} ${s._id===sess.sessionId?'<span class="badge badge-active">This device</span>':''}</div>
+      <div class="list-item-sub">Started ${fmtRelative(s.createdAt)} · expires ${fmtDate(s.refreshExpiresAt)}</div>
+    </div></div>`).join('')}
+    <button class="btn btn-danger btn-sm" style="margin-top:10px" onclick="logoutAll()">Sign out all sessions</button>
+  `}));
+
+  layout({ side:{product:p}, title:'Settings', body });
+
+  $('#profForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const display = (fd.get('first')+' '+fd.get('last')).trim();
+    DB.update('users', u._id, {name:{first:fd.get('first'), last:fd.get('last'), display}});
+    toast('Profile updated');
+    render();
+  };
+  $('#pwForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if(!verifyPassword(fd.get('cur'), u.passwordHash)){ $('#pwErr').innerHTML='<div class="form-error">⚠️ Current password wrong</div>'; return; }
+    DB.update('users', u._id, {passwordHash: hashPassword(fd.get('new')), passwordUpdatedAt:Date.now()});
+    // Revoke other sessions
+    DB.find('sessions',{userId:u._id}).forEach(s=>{ if(!s.revokedAt && s._id !== sess.sessionId) DB.update('sessions',s._id,{revokedAt:Date.now(), revokedReason:'password_change'}); });
+    audit('user.password_changed',{productId:p._id});
+    toast('✅ Password updated, other sessions revoked');
+    render();
+  };
+});
+window.logoutAll = function(){
+  const sess = DB.getSession();
+  DB.find('sessions',{userId:sess.userId}).forEach(s=>{ if(!s.revokedAt) DB.update('sessions',s._id,{revokedAt:Date.now(),revokedReason:'user_logout'}); });
+  audit('user.logout_all');
+  DB.setSession(null);
+  toast('Signed out everywhere');
+  navigate('/');
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   9. EMAIL INBOX (mock)
+   ═══════════════════════════════════════════════════════════════════ */
+function updateInboxBadge(){
+  const unread = DB.all('emails').filter(e=>!e.read).length;
+  const badge = $('#inboxBadge');
+  if(unread>0){ badge.style.display='block'; badge.textContent = unread; }
+  else { badge.style.display='none'; }
+}
+function openInbox(){
+  const emails = [...DB.all('emails')].sort((a,b)=>b.createdAt-a.createdAt);
+  // mark read
+  emails.forEach(e=>{ if(!e.read) DB.update('emails',e._id,{read:true}); });
+  updateInboxBadge();
+  let body = '';
+  if(emails.length === 0){
+    body = '<div class="empty">📭<br><br>No emails yet.</div>';
+  } else {
+    body = emails.map(e=>`
+      <div class="email-item">
+        <div class="email-from">To: ${e.to} · ${fmtRelative(e.createdAt)}</div>
+        <div class="email-subj">${e.subject}</div>
+        <div class="email-body">${e.body}</div>
+        ${e.actions && e.actions.length?`<div class="email-actions">${e.actions.map(a=>`<a class="btn btn-${a.primary?'primary':'secondary'} btn-sm" href="${a.url}" onclick="closeModal()">${a.label}</a>`).join('')}</div>`:''}
+      </div>`).join('');
+  }
+  openModal(`
+    <div class="modal-head"><div class="modal-title">📬 Mock inbox</div><span class="modal-close" onclick="closeModal()">×</span></div>
+    <div class="modal-body" style="max-height:60vh;overflow-y:auto">${body}</div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="if(confirm('Clear all emails?')){DB._cache.emails=[];DB._save();updateInboxBadge();closeModal();}">Clear all</button>
+      <button class="btn btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  `);
+}
+window.openInbox = openInbox;
+
+/* ═══════════════════════════════════════════════════════════════════
+   10. DEV PANEL — reset / inspect
+   ═══════════════════════════════════════════════════════════════════ */
+function openDevPanel(){
+  const counts = COLLECTIONS.map(c=>({c, n: DB.all(c).length}));
+  openModal(`
+    <div class="modal-head"><div class="modal-title">⚙️ Dev panel</div><span class="modal-close" onclick="closeModal()">×</span></div>
+    <div class="modal-body">
+      <div class="card-sub" style="margin-bottom:14px">All data lives in <code class="mono">localStorage["${DB_KEY}"]</code></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px">
+        ${counts.map(x=>`<div style="padding:10px;background:#0d1117;border-radius:6px;border:1px solid #21262d"><div style="font-size:10px;color:#484f58;text-transform:uppercase">${x.c}</div><div style="font-size:18px;font-weight:700;color:#c9d1d9">${x.n}</div></div>`).join('')}
+      </div>
+      <div class="alert alert-warn"><span class="alert-ico">⚠️</span><div>Resetting deletes <strong>all</strong> demo data including super admin and products.</div></div>
+      <div class="tag-row" style="margin-top:14px">
+        <button class="btn btn-secondary btn-sm" onclick="seedDemoData()">🌱 Seed demo data</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportDb()">💾 Export JSON</button>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Wipe all data?')){DB.reset();DB.setSession(null);closeModal();navigate('/');toast('All data reset');}">🗑️ Reset everything</button>
+      </div>
+    </div>
+  `);
+}
+window.openDevPanel = openDevPanel;
+window.exportDb = function(){
+  const blob = new Blob([JSON.stringify(DB._load(),null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'yocore-demo.json'; a.click();
+};
+window.seedDemoData = function(){
+  if(!confirm('Seed demo data? This will reset and create: 1 super admin, 2 products, 4 plans, 2 gateways, 3 end users with workspaces.')) return;
+  DB.reset();
+
+  // Super Admin
+  const sa = DB.insert('users',{
+    email:'admin@yocore.com', emailNormalized:'admin@yocore.com',
+    passwordHash:hashPassword('admin123'), passwordUpdatedAt:Date.now(),
+    name:{first:'Super', last:'Admin', display:'Super Admin'},
+    timezone:'Asia/Dhaka', locale:'en-US',
+    status:'ACTIVE', emailVerified:true, role:'SUPER_ADMIN', failedLoginAttempts:0, _v:1
+  });
+
+  // Product 1: YoPM
+  const yopm = DB.insert('products',{
+    name:'YoPM', slug:'yopm', domain:'yopm.com', description:'Project management for indie teams',
+    allowedOrigins:['https://yopm.com'], status:'ACTIVE',
+    apiKey:'yc_live_pk_'+genToken().slice(0,20), apiSecretHash:sha256('seed_secret'), apiSecretCreatedAt:Date.now(),
+    webhookUrl:'https://yopm.com/webhooks/yocore', webhookEvents:['subscription.activated','subscription.canceled'],
+    billingScope:'workspace',
+    billingConfig:{gatewayRouting:{usd:'stripe',bdt:'sslcommerz',default:'stripe'},gracePeriodDays:7,gracePeriodEmailSchedule:[1,5,7],holdPeriodDays:85,holdPeriodWarningDays:[30,60],canReactivateDuringHold:true,trialDefaultDays:14},
+    defaultRoleSlug:'MEMBER', createdBy:sa._id
+  });
+  ['OWNER','ADMIN','MEMBER','VIEWER'].forEach(slug=>DB.insert('roles',{productId:yopm._id, slug, name:slug.charAt(0)+slug.slice(1).toLowerCase(), isPlatform:true, isDefault:slug==='MEMBER', permissions:slug==='OWNER'?['*']:['workspace.read']}));
+  DB.insert('paymentGateways',{productId:yopm._id, provider:'stripe', mode:'test', status:'ACTIVE', displayName:'Stripe Test', credentialsEncrypted:{secretKey:{iv:'**',tag:'**',ct:'**'}}, lastVerifiedAt:Date.now(), createdBy:sa._id});
+  DB.insert('billingPlans',{productId:yopm._id, name:'Free', slug:'free', isFree:true, amount:0, currency:'usd', interval:'month', intervalCount:1, trialDays:0, gatewayPriceIds:{}, limits:{maxWorkspaces:1, maxMembers:3, maxProjects:-1, storageMb:500, custom:{}}, seatBased:false, status:'ACTIVE', visibility:'public', createdBy:sa._id});
+  DB.insert('billingPlans',{productId:yopm._id, name:'Pro', slug:'pro', isFree:false, amount:2900, currency:'usd', interval:'month', intervalCount:1, trialDays:14, gatewayPriceIds:{stripe:'price_'+genToken().slice(0,12)}, limits:{maxWorkspaces:5, maxMembers:25, maxProjects:-1, storageMb:10240, custom:{}}, seatBased:false, status:'ACTIVE', visibility:'public', createdBy:sa._id});
+  DB.insert('billingPlans',{productId:yopm._id, name:'Business', slug:'biz', isFree:false, amount:9900, currency:'usd', interval:'month', intervalCount:1, trialDays:14, gatewayPriceIds:{stripe:'price_'+genToken().slice(0,12)}, limits:{maxWorkspaces:-1, maxMembers:-1, maxProjects:-1, storageMb:102400, custom:{}}, seatBased:false, status:'ACTIVE', visibility:'public', createdBy:sa._id});
+
+  // Product 2: YoSuite
+  const yosuite = DB.insert('products',{
+    name:'YoSuite', slug:'yosuite', domain:'yosuite.com', description:'All-in-one office suite',
+    allowedOrigins:['https://yosuite.com'], status:'ACTIVE',
+    apiKey:'yc_live_pk_'+genToken().slice(0,20), apiSecretHash:sha256('seed_secret'), apiSecretCreatedAt:Date.now(),
+    webhookUrl:'https://yosuite.com/webhooks/yocore', webhookEvents:[],
+    billingScope:'workspace',
+    billingConfig:{gatewayRouting:{usd:'stripe',bdt:'sslcommerz',default:'stripe'},gracePeriodDays:7,gracePeriodEmailSchedule:[1,5,7],holdPeriodDays:85,holdPeriodWarningDays:[30,60],canReactivateDuringHold:true,trialDefaultDays:14},
+    defaultRoleSlug:'MEMBER', createdBy:sa._id
+  });
+  ['OWNER','ADMIN','MEMBER','VIEWER'].forEach(slug=>DB.insert('roles',{productId:yosuite._id, slug, name:slug.charAt(0)+slug.slice(1).toLowerCase(), isPlatform:true, isDefault:slug==='MEMBER', permissions:slug==='OWNER'?['*']:['workspace.read']}));
+  DB.insert('paymentGateways',{productId:yosuite._id, provider:'stripe', mode:'test', status:'ACTIVE', displayName:'Stripe Test', credentialsEncrypted:{secretKey:{iv:'**',tag:'**',ct:'**'}}, lastVerifiedAt:Date.now(), createdBy:sa._id});
+  DB.insert('paymentGateways',{productId:yosuite._id, provider:'sslcommerz', mode:'test', status:'ACTIVE', displayName:'SSLCommerz Test', credentialsEncrypted:{storeId:{iv:'**',tag:'**',ct:'**'}}, lastVerifiedAt:Date.now(), createdBy:sa._id});
+  DB.insert('billingPlans',{productId:yosuite._id, name:'Starter', slug:'starter', isFree:false, amount:1900, currency:'usd', interval:'month', intervalCount:1, trialDays:7, gatewayPriceIds:{stripe:'price_'+genToken().slice(0,12)}, limits:{maxWorkspaces:3, maxMembers:10, storageMb:5000, custom:{}}, seatBased:false, status:'ACTIVE', visibility:'public', createdBy:sa._id});
+  const yosuiteBusinessPlan = DB.insert('billingPlans',{productId:yosuite._id, name:'Business', slug:'biz', isFree:false, amount:4900, currency:'usd', interval:'month', intervalCount:1, trialDays:14, gatewayPriceIds:{stripe:'price_'+genToken().slice(0,12)}, limits:{maxWorkspaces:-1, maxMembers:-1, storageMb:51200, custom:{}}, seatBased:false, status:'ACTIVE', visibility:'public', createdBy:sa._id});
+
+  // ── End User 1: Karim — YoPM Pro subscriber (ACTIVE)
+  const karim = DB.insert('users',{
+    email:'karim@example.com', emailNormalized:'karim@example.com',
+    passwordHash:hashPassword('karim123'), passwordUpdatedAt:Date.now(),
+    name:{first:'Karim', last:'Rahman', display:'Karim Rahman'},
+    timezone:'Asia/Dhaka', locale:'en-US',
+    status:'ACTIVE', emailVerified:true, emailVerifiedAt:Date.now(), emailVerifiedMethod:'email_link',
+    role:'END_USER', failedLoginAttempts:0, lastLoginAt:Date.now(), _v:1
+  });
+  DB.insert('productUsers',{userId:karim._id, productId:yopm._id, status:'ACTIVE', joinedAt:Date.now()-10*86400000, lastActiveAt:Date.now(), onboarded:true, preferences:{notifications:{email:true,inApp:true},theme:'dark',favorites:[]}, productRole:'END_USER'});
+  const karimWs = DB.insert('workspaces',{
+    productId:yopm._id, name:'Acme Corp', slug:'acme-corp',
+    ownerUserId:karim._id, billingContactUserId:karim._id,
+    status:'ACTIVE', suspended:false, dataDeleted:false, timezone:'Asia/Dhaka', settings:{}
+  });
+  const yopmOwnerRole = DB.findOne('roles',{productId:yopm._id, slug:'OWNER'});
+  DB.insert('workspaceMembers',{workspaceId:karimWs._id, productId:yopm._id, userId:karim._id, roleId:yopmOwnerRole._id, roleSlug:'OWNER', status:'ACTIVE', addedBy:null, joinedAt:Date.now()-10*86400000});
+  const yopmProPlan = DB.findOne('billingPlans',{productId:yopm._id, slug:'pro'});
+  DB.insert('subscriptions',{
+    productId:yopm._id, planId:yopmProPlan._id,
+    subjectType:'workspace', subjectWorkspaceId:karimWs._id, subjectUserId:null,
+    gateway:'stripe', gatewayRefs:{stripeCustomerId:'cus_karim01', stripeSubscriptionId:'sub_karim01', stripeLatestInvoiceId:'in_karim01'},
+    status:'ACTIVE', cancelAtPeriodEnd:false, canceledAt:null, cancelReason:null,
+    currentPeriodStart:Date.now()-5*86400000, currentPeriodEnd:Date.now()+25*86400000,
+    trialStartsAt:null, trialEndsAt:null, quantity:1,
+    paymentFailedAt:null, graceEmailsSent:{day1:false,day5:false,day7:false},
+    amount:2900, currency:'usd', lastWebhookEventId:'evt_karim01', lastWebhookProcessedAt:Date.now()
+  });
+
+  // ── End User 2: Sara — YoPM Free + YoSuite Trialing
+  const sara = DB.insert('users',{
+    email:'sara@example.com', emailNormalized:'sara@example.com',
+    passwordHash:hashPassword('sara123'), passwordUpdatedAt:Date.now(),
+    name:{first:'Sara', last:'Hossain', display:'Sara Hossain'},
+    timezone:'Asia/Dhaka', locale:'en-US',
+    status:'ACTIVE', emailVerified:true, emailVerifiedAt:Date.now(), emailVerifiedMethod:'email_link',
+    role:'END_USER', failedLoginAttempts:0, lastLoginAt:Date.now()-1*86400000, _v:1
+  });
+  DB.insert('productUsers',{userId:sara._id, productId:yopm._id, status:'ACTIVE', joinedAt:Date.now()-3*86400000, lastActiveAt:Date.now()-1*86400000, onboarded:true, preferences:{notifications:{email:true,inApp:true},theme:'dark',favorites:[]}, productRole:'END_USER'});
+  DB.insert('productUsers',{userId:sara._id, productId:yosuite._id, status:'ACTIVE', joinedAt:Date.now()-2*86400000, lastActiveAt:Date.now(), onboarded:true, preferences:{notifications:{email:true,inApp:true},theme:'dark',favorites:[]}, productRole:'END_USER'});
+  const saraWsYopm = DB.insert('workspaces',{
+    productId:yopm._id, name:'Sara\'s Team', slug:'saras-team',
+    ownerUserId:sara._id, billingContactUserId:sara._id,
+    status:'ACTIVE', suspended:false, dataDeleted:false, timezone:'Asia/Dhaka', settings:{}
+  });
+  DB.insert('workspaceMembers',{workspaceId:saraWsYopm._id, productId:yopm._id, userId:sara._id, roleId:yopmOwnerRole._id, roleSlug:'OWNER', status:'ACTIVE', addedBy:null, joinedAt:Date.now()-3*86400000});
+  // Also add Karim as MEMBER in Sara's workspace
+  const yopmMemberRole = DB.findOne('roles',{productId:yopm._id, slug:'MEMBER'});
+  DB.insert('workspaceMembers',{workspaceId:saraWsYopm._id, productId:yopm._id, userId:karim._id, roleId:yopmMemberRole._id, roleSlug:'MEMBER', status:'ACTIVE', addedBy:sara._id, joinedAt:Date.now()-2*86400000});
+  DB.insert('productUsers',{userId:karim._id, productId:yopm._id, status:'ACTIVE', joinedAt:Date.now()-10*86400000, lastActiveAt:Date.now(), onboarded:true, preferences:{notifications:{email:true,inApp:true},theme:'dark'}, productRole:'END_USER'}); // already exists check handled
+  const yopmFreePlan = DB.findOne('billingPlans',{productId:yopm._id, slug:'free'});
+  DB.insert('subscriptions',{
+    productId:yopm._id, planId:yopmFreePlan._id,
+    subjectType:'workspace', subjectWorkspaceId:saraWsYopm._id, subjectUserId:null,
+    gateway:null, gatewayRefs:{}, status:'ACTIVE',
+    currentPeriodStart:Date.now()-3*86400000, currentPeriodEnd:null,
+    quantity:1, paymentFailedAt:null, graceEmailsSent:{day1:false,day5:false,day7:false},
+    amount:0, currency:'usd'
+  });
+  // Sara in YoSuite — TRIALING
+  const saraWsYosuite = DB.insert('workspaces',{
+    productId:yosuite._id, name:'Sara\'s Office', slug:'saras-office',
+    ownerUserId:sara._id, billingContactUserId:sara._id,
+    status:'ACTIVE', suspended:false, dataDeleted:false, timezone:'Asia/Dhaka', settings:{}
+  });
+  const yosuiteOwnerRole = DB.findOne('roles',{productId:yosuite._id, slug:'OWNER'});
+  DB.insert('workspaceMembers',{workspaceId:saraWsYosuite._id, productId:yosuite._id, userId:sara._id, roleId:yosuiteOwnerRole._id, roleSlug:'OWNER', status:'ACTIVE', addedBy:null, joinedAt:Date.now()-2*86400000});
+  const yosuiteStarterPlan = DB.findOne('billingPlans',{productId:yosuite._id, slug:'starter'});
+  DB.insert('subscriptions',{
+    productId:yosuite._id, planId:yosuiteStarterPlan._id,
+    subjectType:'workspace', subjectWorkspaceId:saraWsYosuite._id, subjectUserId:null,
+    gateway:'stripe', gatewayRefs:{stripeCustomerId:'cus_sara01', stripeSubscriptionId:'sub_sara01'},
+    status:'TRIALING', cancelAtPeriodEnd:false,
+    currentPeriodStart:Date.now()-2*86400000, currentPeriodEnd:Date.now()+5*86400000,
+    trialStartsAt:Date.now()-2*86400000, trialEndsAt:Date.now()+5*86400000,
+    quantity:1, paymentFailedAt:null, graceEmailsSent:{day1:false,day5:false,day7:false},
+    amount:1900, currency:'usd'
+  });
+
+  // ── End User 3: Rahim — PAST_DUE (billing lifecycle demo)
+  const rahim = DB.insert('users',{
+    email:'rahim@example.com', emailNormalized:'rahim@example.com',
+    passwordHash:hashPassword('rahim123'), passwordUpdatedAt:Date.now(),
+    name:{first:'Rahim', last:'Chowdhury', display:'Rahim Chowdhury'},
+    timezone:'Asia/Dhaka', locale:'en-US',
+    status:'ACTIVE', emailVerified:true, emailVerifiedAt:Date.now(), emailVerifiedMethod:'email_link',
+    role:'END_USER', failedLoginAttempts:0, lastLoginAt:Date.now()-7*86400000, _v:1
+  });
+  DB.insert('productUsers',{userId:rahim._id, productId:yopm._id, status:'ACTIVE', joinedAt:Date.now()-20*86400000, lastActiveAt:Date.now()-7*86400000, onboarded:true, preferences:{notifications:{email:true,inApp:true},theme:'dark',favorites:[]}, productRole:'END_USER'});
+  const rahimWs = DB.insert('workspaces',{
+    productId:yopm._id, name:'Rahim\'s Agency', slug:'rahims-agency',
+    ownerUserId:rahim._id, billingContactUserId:rahim._id,
+    status:'ACTIVE', suspended:false, dataDeleted:false, timezone:'Asia/Dhaka', settings:{}
+  });
+  DB.insert('workspaceMembers',{workspaceId:rahimWs._id, productId:yopm._id, userId:rahim._id, roleId:yopmOwnerRole._id, roleSlug:'OWNER', status:'ACTIVE', addedBy:null, joinedAt:Date.now()-20*86400000});
+  const yopmBizPlan = DB.findOne('billingPlans',{productId:yopm._id, slug:'biz'});
+  DB.insert('subscriptions',{
+    productId:yopm._id, planId:yopmBizPlan._id,
+    subjectType:'workspace', subjectWorkspaceId:rahimWs._id, subjectUserId:null,
+    gateway:'stripe', gatewayRefs:{stripeCustomerId:'cus_rahim01', stripeSubscriptionId:'sub_rahim01'},
+    status:'PAST_DUE', cancelAtPeriodEnd:false,
+    currentPeriodStart:Date.now()-30*86400000, currentPeriodEnd:Date.now()-1*86400000,
+    trialStartsAt:null, trialEndsAt:null, quantity:1,
+    paymentFailedAt:Date.now()-3*86400000, graceEmailsSent:{day1:true,day5:false,day7:false},
+    amount:9900, currency:'usd'
+  });
+
+  closeModal();
+  openModal(`
+    <div class="modal-head"><div class="modal-title">🌱 Demo seeded — credentials</div><span class="modal-close" onclick="closeModal();navigate('/')">×</span></div>
+    <div class="modal-body">
+      <div class="section-title">Super Admin</div>
+      <div class="list-item"><div class="list-item-info"><div class="list-item-title">🛡️ Super Admin</div><div class="list-item-sub">admin@yocore.com · password: <strong>admin123</strong></div></div><button class="btn btn-secondary btn-sm" onclick="navigate('/admin/login');closeModal()">Login →</button></div>
+
+      <div class="section-title">YoPM end users</div>
+      <div class="list-item"><div class="list-item-info"><div class="list-item-title">Karim Rahman <span class="badge badge-active">ACTIVE</span></div><div class="list-item-sub">karim@example.com · password: <strong>karim123</strong><br>Workspace: Acme Corp · Plan: Pro ($29/mo)</div></div><button class="btn btn-secondary btn-sm" onclick="navigate('/p/${yopm._id}/login');closeModal()">Login →</button></div>
+      <div class="list-item"><div class="list-item-info"><div class="list-item-title">Sara Hossain <span class="badge badge-active">ACTIVE</span></div><div class="list-item-sub">sara@example.com · password: <strong>sara123</strong><br>Workspace: Sara's Team · Plan: Free</div></div><button class="btn btn-secondary btn-sm" onclick="navigate('/p/${yopm._id}/login');closeModal()">Login →</button></div>
+      <div class="list-item"><div class="list-item-info"><div class="list-item-title">Rahim Chowdhury <span class="badge badge-past-due">PAST_DUE</span></div><div class="list-item-sub">rahim@example.com · password: <strong>rahim123</strong><br>Workspace: Rahim's Agency · Plan: Business (payment failed)</div></div><button class="btn btn-secondary btn-sm" onclick="navigate('/p/${yopm._id}/login');closeModal()">Login →</button></div>
+
+      <div class="section-title">YoSuite end users</div>
+      <div class="list-item"><div class="list-item-info"><div class="list-item-title">Sara Hossain <span class="badge badge-trial">TRIALING</span></div><div class="list-item-sub">sara@example.com · password: <strong>sara123</strong><br>Workspace: Sara's Office · Plan: Starter (5 days left)</div></div><button class="btn btn-secondary btn-sm" onclick="navigate('/p/${yosuite._id}/login');closeModal()">Login →</button></div>
+
+      <div class="alert alert-info" style="margin-top:16px"><span class="alert-ico">💡</span><div>Rahim er billing page e giye "Simulate Day 8" click korle workspace suspend hobe. Lifecycle demo r jonno perfect.</div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal();navigate('/')">Got it →</button></div>
+  `);
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   11. INIT
+   ═══════════════════════════════════════════════════════════════════ */
+DB._load();
+render();
+updateInboxBadge();
+</script>
+</body>
+</html>

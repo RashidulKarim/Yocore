@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YoCore — Visual Flow Diagrams</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d1117;color:#e6edf3;font-size:14px;line-height:1.5}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:268px;min-width:268px;background:#161b22;border-right:1px solid #30363d;height:100vh;overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-track{background:transparent}.sidebar::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
+.sidebar-brand{padding:20px 20px 18px;border-bottom:1px solid #30363d}
+.brand-logo{font-size:22px;font-weight:800;background:linear-gradient(135deg,#58a6ff,#bc8cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
+.brand-sub{font-size:11px;color:#484f58;margin-top:3px;letter-spacing:0.3px}
+.sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#484f58;padding:16px 20px 8px}
+.flow-link{display:flex;align-items:flex-start;gap:11px;padding:9px 16px;cursor:pointer;border-left:3px solid transparent;transition:background .15s,border-color .15s;user-select:none}
+.flow-link:hover{background:rgba(255,255,255,.03)}
+.flow-link.active{border-left-color:#58a6ff;background:rgba(88,166,255,.06)}
+.flow-num-badge{width:24px;height:24px;border-radius:7px;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#8b949e;flex-shrink:0;margin-top:1px}
+.flow-link.active .flow-num-badge{background:#1c3466;color:#58a6ff}
+.fl-text{flex:1;min-width:0}
+.fl-title{font-size:13px;font-weight:500;color:#c9d1d9;line-height:1.35}
+.flow-link.active .fl-title{color:#58a6ff}
+.fl-sub{font-size:11px;color:#484f58;margin-top:2px}
+.sidebar-legend{padding:16px 20px;border-top:1px solid #30363d;margin-top:auto}
+.legend-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;margin-bottom:10px}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.legend-label{font-size:11px;color:#8b949e}
+
+/* ── MAIN ── */
+.main{flex:1;height:100vh;overflow-y:auto;min-width:0}
+.main::-webkit-scrollbar{width:6px}.main::-webkit-scrollbar-track{background:transparent}.main::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
+.flow-page{display:none;padding:40px 44px 60px;max-width:960px}
+.flow-page.active{display:block}
+
+/* ── FLOW HEADER ── */
+.flow-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.flow-title{font-size:28px;font-weight:800;color:#e6edf3;letter-spacing:-0.5px;margin-bottom:12px;line-height:1.2}
+.flow-desc{font-size:13.5px;color:#8b949e;line-height:1.75;max-width:680px;padding:14px 18px;background:#161b22;border-left:3px solid #21262d;border-radius:0 10px 10px 0;margin-bottom:28px}
+
+/* ── ACTORS ROW ── */
+.actors-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+.actor-pill{display:flex;align-items:center;gap:7px;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid}
+
+/* ── STEPS ── */
+.steps-wrap{position:relative;max-width:760px}
+.step{display:flex;gap:0;position:relative}
+.step-gutter{width:46px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.step-circle{width:38px;height:38px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:#0d1117;flex-shrink:0;z-index:1}
+.step-line{width:2px;background:#21262d;flex:1;min-height:20px}
+.step-body{flex:1;padding:0 0 26px 16px;min-width:0}
+.step-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px 20px;transition:border-color .2s,box-shadow .2s}
+.step-card:hover{border-color:#484f58;box-shadow:0 4px 24px rgba(0,0,0,.3)}
+.step-actor{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.step-action{font-size:15px;font-weight:700;color:#e6edf3;margin-bottom:7px}
+.step-detail{font-size:13px;color:#8b949e;line-height:1.65;margin-bottom:12px}
+.step-payload{background:#0a0d12;border:1px solid #21262d;border-radius:8px;padding:12px 14px;font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:12px;color:#79c0ff;margin-bottom:12px;overflow-x:auto;white-space:pre;line-height:1.6}
+.db-impact{margin-top:12px;padding-top:12px;border-top:1px solid #21262d}
+.db-impact-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;margin-bottom:8px}
+.db-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.db-coll{font-family:'SF Mono','Courier New',monospace;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;background:#1c2128;border:1px solid #30363d;color:#c9d1d9}
+.op{font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.5px}
+.op-insert{background:#0e2a1d;color:#3fb950}
+.op-update{background:#271c06;color:#f0883e}
+.op-delete{background:#270b0b;color:#f85149}
+.op-read{background:#0c1c32;color:#58a6ff}
+.db-fields{font-size:11px;color:#8b949e;font-family:monospace;font-style:italic}
+
+/* ── DB SUMMARY ── */
+.db-summary{margin-top:44px;padding-top:36px;border-top:1px solid #30363d;max-width:760px}
+.db-summary-title{font-size:16px;font-weight:700;color:#e6edf3;margin-bottom:18px;display:flex;align-items:center;gap:9px}
+.db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px}
+.db-card{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:13px 14px}
+.db-card.hit{border-color:#238636;background:#0a1f0d}
+.db-card-name{font-size:13px;font-weight:700;font-family:monospace;margin-bottom:7px;display:flex;align-items:center;gap:7px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#21262d;flex-shrink:0}
+.db-card.hit .status-dot{background:#3fb950}
+.db-card-ops{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.db-card-note{font-size:11px;color:#484f58;font-family:monospace;line-height:1.5}
+.db-card.hit .db-card-note{color:#7d8590}
+
+/* ── SCROLLTOP BUTTON ── */
+.totop{position:fixed;bottom:28px;right:28px;width:40px;height:40px;border-radius:50%;background:#21262d;border:1px solid #30363d;color:#8b949e;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;z-index:100}
+.totop:hover{background:#30363d;color:#e6edf3}
+
+/* ── SPECIAL TAGS ── */
+.warning-step .step-card{border-left-color:#f0883e!important;background:#1a1208}
+.danger-step .step-card{border-left-color:#f85149!important;background:#1a0808}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">YoCore</div>
+      <div class="brand-sub">Visual Flow Diagrams · v1.5</div>
+    </div>
+    <div class="sidebar-label">Core Flows</div>
+    <div id="sidebar-nav"></div>
+    <div class="sidebar-legend">
+      <div class="legend-title">Actor Legend</div>
+      <div id="legend-rows"></div>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    <div id="flow-container"></div>
+  </main>
+</div>
+<button class="totop" onclick="document.getElementById('main').scrollTop=0" title="Back to top">↑</button>
+
+<script>
+// ═══════════════════════════════════════════════
+//  ACTORS
+// ═══════════════════════════════════════════════
+const ACTORS = {
+  'super-admin':  { label:'Super Admin (You)',  color:'#c084fc', bg:'rgba(192,132,252,.09)', border:'rgba(192,132,252,.3)' },
+  'browser':      { label:'Browser / End User', color:'#22d3ee', bg:'rgba(34,211,238,.09)',  border:'rgba(34,211,238,.3)'  },
+  'product-app':  { label:'Yo Product (YoPM)',  color:'#34d399', bg:'rgba(52,211,153,.09)', border:'rgba(52,211,153,.3)'  },
+  'yocore-api':   { label:'YoCore API',         color:'#60a5fa', bg:'rgba(96,165,250,.09)', border:'rgba(96,165,250,.3)'  },
+  'mongodb':      { label:'MongoDB',            color:'#4ade80', bg:'rgba(74,222,128,.09)', border:'rgba(74,222,128,.3)'  },
+  'redis':        { label:'Redis',              color:'#f87171', bg:'rgba(248,113,113,.09)',border:'rgba(248,113,113,.3)' },
+  'stripe':       { label:'Stripe',             color:'#a78bfa', bg:'rgba(167,139,250,.09)',border:'rgba(167,139,250,.3)' },
+  'sslcommerz':   { label:'SSLCommerz',          color:'#f97316', bg:'rgba(249,115,22,.09)',  border:'rgba(249,115,22,.3)'  },
+  'email':        { label:'Email (Resend)',      color:'#fbbf24', bg:'rgba(251,191,36,.09)', border:'rgba(251,191,36,.3)'  },
+};
+const ACTOR_COLOR = a => ACTORS[a]?.color || '#58a6ff';
+
+// ═══════════════════════════════════════════════
+//  ALL MONGO COLLECTIONS
+// ═══════════════════════════════════════════════
+const ALL_COLLECTIONS = [
+  'users','sessions','authTokens','products','productUsers',
+  'workspaces','workspaceMembers','roles','billingPlans',
+  'subscriptions','invitations','webhookDeliveries','auditLogs','bundles',
+  'paymentGateways'
+];
+
+// ═══════════════════════════════════════════════
+//  FLOW DATA
+// ═══════════════════════════════════════════════
+const flows = [
+
+// ─────────────────────────────────────────────
+// FLOW 01 — SUPER ADMIN LOGIN
+// ─────────────────────────────────────────────
+{
+  id:'f01', num:'01',
+  title:'Super Admin YoCore-এ Login করে',
+  subtitle:'Dashboard access',
+  desc:'তুমি (Super Admin) প্রথমবার তোমার private YoCore dashboard URL-এ login করছো। YoCore credentials verify করে একটা JWT issue করে এবং session MongoDB-তে save করে।',
+  actors:['super-admin','yocore-api','mongodb'],
+  steps:[
+    {
+      actor:'super-admin',
+      action:'YoCore Dashboard URL খোলো, email + password দাও',
+      detail:'তুমি তোমার private YoCore admin URL-এ navigate করো এবং Super Admin credentials enter করো।',
+      payload:null, db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'POST /v1/auth/signin — Credentials validate করো',
+      detail:'YoCore users collection-এ email দিয়ে search করে। Argon2id দিয়ে password hash verify করে। Role = SUPER_ADMIN কিনা check করে।',
+      payload:'POST /v1/auth/signin\nHeaders: X-Internal-Key: yc_admin\n{\n  "email": "you@yocore.io",\n  "password": "••••••••"\n}',
+      db:[
+        {c:'users',   op:'read',   f:'email দিয়ে user খোঁজো, passwordHash + role নাও'},
+        {c:'users',   op:'update', f:'lastLoginAt ← now, failedAttempts ← 0'},
+        {c:'sessions',op:'insert', f:'userId, jti, refreshTokenHash, ip, userAgent, expiresAt (+30d admin)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'JWT (15min) + Refresh Token (30 days) issue করো',
+      detail:'Access token payload: { sub: userId, role: "SUPER_ADMIN" }. Refresh token httpOnly Secure cookie হিসেবে set হয়। Client কখনো raw refresh token দেখে না।',
+      payload:'Response 200:\n{\n  "access_token": "eyJhbGci...", // 15 min expiry\n  "user": {\n    "id": "usr_sa_001",\n    "name": "You",\n    "role": "SUPER_ADMIN"\n  }\n}\nSet-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict',
+      db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'YoCore Dashboard Home দেখতে পাও',
+      detail:'Dashboard load হয়: সব registered products-এর cards, total MRR, active users। প্রথমবার হলে empty state দেখাবে।',
+      payload:null, db:[]
+    }
+  ],
+  dbHit:{
+    'users':    {ops:['read','update'], note:'Login verify, lastLoginAt + failedAttempts reset'},
+    'sessions': {ops:['insert'],        note:'নতুন admin session record তৈরি'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 02 — REGISTER PRODUCT
+// ─────────────────────────────────────────────
+{
+  id:'f02', num:'02',
+  title:'নতুন Product Register করো (YoPM)',
+  subtitle:'Product Registry',
+  desc:'তুমি YoCore dashboard থেকে YoPM-কে register করছো। YoCore API Key + Secret generate করে। এই credentials YoPM-এর .env-এ রাখলে YoPM YoCore-এর সাথে কথা বলতে পারবে।',
+  actors:['super-admin','yocore-api','mongodb'],
+  steps:[
+    {
+      actor:'super-admin',
+      action:'Dashboard → Products → "Register New Product" click করো',
+      detail:'Product registration form খোলে। Name, Slug, Domain, Logo URL, Description, Billing Scope fill করো।',
+      payload:null, db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'Form fill করো এবং Submit করো',
+      detail:'Slug auto-generate হয় name থেকে (lowercase, hyphenated)। Domain হলো তোমার product-এর base URL। Billing Scope: workspace (B2B) বা user (individual)।',
+      payload:'{\n  "name": "YoPM",\n  "slug": "yopm",\n  "domain": "yopm.io",\n  "description": "Project Management Tool",\n  "billingScope": "workspace"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Slug uniqueness check করো, Product record তৈরি করো',
+      detail:'Slug already exists কিনা check করে। তারপর product document create করে। Default roles তৈরি হয়: OWNER, ADMIN, MEMBER, VIEWER।',
+      payload:null,
+      db:[
+        {c:'products', op:'insert', f:'name, slug, domain, status: INACTIVE, billingScope, createdAt'},
+        {c:'roles',    op:'insert', f:'4টা default role: OWNER, ADMIN, MEMBER, VIEWER (productId-scoped)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'API Key + Secret generate করো (⚠️ Secret শুধু একবারই দেখাবে)',
+      detail:'API Key (prefix: yc_live_) random generate হয়। Secret আলাদাভাবে generate হয়। Secret-এর Argon2id hash শুধু DB-তে store হয় — plain text কোথাও থাকে না।',
+      payload:'// Generated credentials (show once modal):\n{\n  "api_key": "yc_live_a7b3c9d2e1f4...",\n  "api_secret": "ycs_x9y2z8w1v4u7..."\n  // ⚠️ api_secret copy করো এখনই!\n  // YoCore শুধু hash রাখে — পরে দেখানো যাবে না!\n}',
+      db:[
+        {c:'products', op:'update', f:'apiKey (plain, for header matching), apiSecretHash (Argon2id hash)'}
+      ]
+    },
+    {
+      actor:'super-admin',
+      action:'YoPM .env-এ credentials add করো',
+      detail:'Copied credentials YoPM-এর environment variable-এ রাখো। এখন থেকে YoPM YoCore-কে call করতে পারবে।',
+      payload:'# YoPM — .env file\nYOCORE_API_KEY=yc_live_a7b3c9d2e1f4\nYOCORE_API_SECRET=ycs_x9y2z8w1v4u7\nYOCORE_BASE_URL=https://api.yocore.io',
+      db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'Product ACTIVE করো (Dashboard-এ)',
+      detail:'Settings-এ গিয়ে product status INACTIVE → ACTIVE করো। এখন product dashboard-এ দেখা যাবে এবং users sign up করতে পারবে।',
+      payload:null,
+      db:[
+        {c:'products', op:'update', f:'status ← ACTIVE'}
+      ]
+    }
+  ],
+  dbHit:{
+    'products': {ops:['insert','update'], note:'নতুন product doc, API credentials hash, status ACTIVE'},
+    'roles':    {ops:['insert'],          note:'Default roles: OWNER, ADMIN, MEMBER, VIEWER'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 02B — PAYMENT GATEWAY SETUP
+// ─────────────────────────────────────────────
+{
+  id:'f02b', num:'2B',
+  title:'Payment Gateway Setup — Stripe + SSLCommerz',
+  subtitle:'Product config — Billing gateways',
+  desc:'Product register করার পরে Super Admin payment gateway configure করে। YoPM হয়তো শুধু Stripe নেবে (international users), YoSuite নেবে Stripe + SSLCommerz (BD users)। Gateway credentials encrypted হয়ে <code style="background:#1c2128;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">paymentGateways</code> collection-এ থাকে — plain text কখনো store হয় না। তারপরে SSLCommerz-এর জন্য recurring কীভাবে কাজ করে সেটাও দেখানো হয়েছে।',
+  actors:['super-admin','yocore-api','mongodb','stripe','sslcommerz'],
+  steps:[
+    {
+      actor:'super-admin',
+      action:'Dashboard → YoPM → Settings → Billing → Gateways → "Add Gateway"',
+      detail:'Product-এ কোন কোন payment gateway active থাকবে সেটা এখান থেকে configure করা হয়। প্রতিটা product আলাদা gateway configuration রাখতে পারে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'Stripe gateway add করো — API credentials enter করো',
+      detail:'Stripe Dashboard থেকে Secret Key কপি করো। YoCore শুধু server-side secret key store করে — publishable key optional (frontend embed-এর জন্য)। Secret AES-256 দিয়ে encrypt হয়ে store হয়।',
+      payload:'{\n  "provider": "stripe",\n  "product_id": "prod_yopm_objectid",\n  "config": {\n    "secret_key": "sk_live_xxxxx",     // ← AES-256 encrypted before storage\n    "publishable_key": "pk_live_xxxxx", // ← stored plain (not sensitive)\n    "webhook_secret": "whsec_xxxxx"    // ← AES-256 encrypted\n  },\n  "currency": ["usd", "eur", "gbp"],\n  "is_default": true\n}',
+      db:[
+        {c:'paymentGateways', op:'insert', f:'productId, provider: "stripe", secretKeyEncrypted (AES-256), publishableKey, webhookSecretEncrypted, currency: ["usd"], isDefault: true, isActive: true'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Stripe credentials validate করো — test API call করো',
+      detail:'stripe.accounts.retrieve() দিয়ে credentials valid কিনা confirm করো। Invalid হলে error — DB-তে save হয় না।',
+      payload:'// Validation call:\nconst acct = await stripe.accounts.retrieve();\n// Success → save encrypted credentials\n// Fail   → "Invalid Stripe credentials" error',
+      db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'SSLCommerz gateway add করো — Store ID + Password enter করো',
+      detail:'SSLCommerz merchant panel থেকে Store ID এবং Store Password নাও। এগুলোও AES-256 encrypt হয়ে store হয়। Currency: BDT শুধু।',
+      payload:'{\n  "provider": "sslcommerz",\n  "product_id": "prod_yopm_objectid",\n  "config": {\n    "store_id": "yopm12345",          // ← AES-256 encrypted\n    "store_passwd": "yopm12345pass",  // ← AES-256 encrypted\n    "is_sandbox": false\n  },\n  "currency": ["bdt"],\n  "is_default": false\n}',
+      db:[
+        {c:'paymentGateways', op:'insert', f:'productId, provider: "sslcommerz", storeIdEncrypted, storePasswdEncrypted, currency: ["bdt"], isDefault: false, isActive: true'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'SSLCommerz credentials validate করো — test session call করো',
+      detail:'SSLCommerz API-তে ছোট test transaction initiate করে credentials check করো। ৳0 amount দিয়ে test করা যায় sandbox-এ।',
+      payload:'// POST to SSLCommerz API:\nPOST https://sandbox.sslcommerz.com/gwprocess/v4/api.php\n{\n  store_id: "yopm12345",\n  store_passwd: "yopm12345pass",\n  total_amount: 10,\n  currency: "BDT",\n  tran_id: "VALIDATION_TEST_" + Date.now(),\n  ...\n}\n// Response status: "SUCCESS" → credentials valid',
+      db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'Gateway currency routing rule set করো',
+      detail:'YoCore-কে বলো: BDT হলে SSLCommerz-এ route করো, USD/EUR হলে Stripe-এ route করো। User checkout-এ currency দেখে auto-select হবে।',
+      payload:'// Routing logic (stored in products.billingConfig):\n{\n  "gateway_routing": {\n    "bdt": "sslcommerz",\n    "usd": "stripe",\n    "eur": "stripe",\n    "default": "stripe"\n  }\n}',
+      db:[
+        {c:'products', op:'update', f:'billingConfig.gatewayRouting ← { bdt: "sslcommerz", usd: "stripe", default: "stripe" }'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'🔄 SSLCommerz Recurring: Stripe "billing calendar" হিসেবে setup করো',
+      detail:'SSLCommerz-এর নিজস্ব recurring নেই। কিন্তু Stripe-কে "billing calendar" হিসেবে ব্যবহার করে SSLCommerz দিয়ে charge করা যায়। এটা Stripe-এর official pattern।',
+      payload:'// SSLCommerz product-এর জন্য Stripe subscription তৈরি:\nconst sub = await stripe.subscriptions.create({\n  customer: stripeCustomerId,\n  items: [{ price: stripePriceId }],\n  collection_method: "send_invoice",  // ← KEY: Stripe charge করবে না!\n  days_until_due: 7,                  // ← 7 দিনের মধ্যে pay করতে হবে\n  metadata: {\n    gateway: "sslcommerz",\n    workspace_id: workspaceId,\n    currency: "bdt"\n  }\n});\n// Stripe শুধু invoice তৈরি করে + schedule রাখে\n// Actual charge → SSLCommerz via YoCore',
+      db:[
+        {c:'subscriptions', op:'insert', f:'gateway: "sslcommerz", stripeSubscriptionId (for calendar only), stripeInvoiceId, status: ACTIVE, currentPeriodEnd'}
+      ]
+    },
+    {
+      actor:'stripe',
+      action:'প্রতি মাসে renewal-এ invoice.created webhook পাঠাও',
+      detail:'Stripe শুধু invoice তৈরি করে এবং YoCore-কে জানায়। নিজে charge করার চেষ্টা করে না (collection_method: send_invoice)।',
+      payload:'{\n  "type": "invoice.created",\n  "data": { "object": {\n    "id": "in_xxx",\n    "subscription": "sub_xxx",\n    "amount_due": 290000,  // BDT 2900.00 (paisa)\n    "currency": "bdt",\n    "metadata": { "gateway": "sslcommerz" }\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Webhook catch করো → SSLCommerz payment session তৈরি করো → email পাঠাও',
+      detail:'Stripe invoice এলে YoCore SSLCommerz-এ session তৈরি করে। Payment link email-এ পাঠায়। User click করে SSLCommerz hosted page-এ payment করে।',
+      payload:'// SSLCommerz session create:\nPOST https://securepay.sslcommerz.com/gwprocess/v4/api.php\n{\n  store_id: decrypt(gateway.storeIdEncrypted),\n  store_passwd: decrypt(gateway.storePasswdEncrypted),\n  total_amount: 2900,\n  currency: "BDT",\n  tran_id: "YOCORE_" + invoiceId + "_" + Date.now(),\n  success_url: "https://api.yocore.io/v1/billing/sslcommerz/success",\n  fail_url:    "https://api.yocore.io/v1/billing/sslcommerz/fail",\n  ipn_url:     "https://api.yocore.io/v1/billing/sslcommerz/ipn",\n  // value_a/b/c/d → pass stripeInvoiceId + workspaceId\n  value_a: stripeInvoiceId,\n  value_b: workspaceId,\n  cus_name: user.name, cus_email: user.email, ...\n}',
+      db:[
+        {c:'subscriptions', op:'update', f:'stripeInvoiceId ← in_xxx, sslcommerzSessionKey ← session_key, renewalPaymentStatus: PENDING'}
+      ]
+    },
+    {
+      actor:'sslcommerz',
+      action:'User SSLCommerz-এ pay করে (bKash / card / internet banking) → IPN POST',
+      detail:'User email-এর link click করে SSLCommerz hosted page-এ যায়। bKash, Nexus, local bank card — যেকোনো BD payment method use করতে পারে। Payment হলে YoCore-এর ipn_url-এ POST আসে।',
+      payload:'// IPN POST to /v1/billing/sslcommerz/ipn:\n{\n  status: "VALID",\n  tran_id: "YOCORE_in_xxx_1745234400000",\n  val_id: "1745234400123AbCdEfGhIjK",\n  amount: "2900",\n  currency: "BDT",\n  card_brand: "VISA",\n  card_no: "455445XXXXXX4326",\n  value_a: "in_xxx",    // stripeInvoiceId\n  value_b: "ws_abc",   // workspaceId\n  verify_sign: "...",\n  verify_key: "amount,status,..."\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'IPN validate করো → Stripe-কে paid_out_of_band বলো',
+      detail:'Step 1: IPN signature verify। Step 2: SSLCommerz Order Validation API call করো (amount + status double-check)। Step 3: Stripe API-তে invoice paid_out_of_band mark করো। এরপর Stripe পরের মাসের invoice automatically schedule করবে।',
+      payload:'// Step 2: SSLCommerz Order Validation:\nGET https://securepay.sslcommerz.com/validator/api/validationserverAPI.php\n  ?val_id=1745234400123AbCdEfGhIjK\n  &store_id=yopm12345\n  &store_passwd=yopm12345pass\n// Response: { status: "VALID", amount: "2900" }\n// Verify amount matches expected amount!\n\n// Step 3: Tell Stripe payment was collected externally:\nawait stripe.invoices.pay("in_xxx", {\n  paid_out_of_band: true  // ← This is the KEY!\n});\n// Stripe marks invoice PAID, schedules next month',
+      db:[
+        {c:'subscriptions',    op:'update', f:'renewalPaymentStatus: PAID, sslcommerzTranId: tran_id, sslcommerzValId: val_id\ncurrentPeriodStart ← now, currentPeriodEnd ← +30d'},
+        {c:'webhookDeliveries',op:'insert', f:'event: sslcommerz.payment.success, tranId, valId, amount, status: VERIFIED'}
+      ]
+    }
+  ],
+  dbHit:{
+    'paymentGateways': {ops:['insert'],         note:'Stripe + SSLCommerz gateway config (encrypted credentials)'},
+    'products':        {ops:['update'],         note:'billingConfig.gatewayRouting — currency → gateway mapping'},
+    'subscriptions':   {ops:['insert','update'],note:'gateway field, stripeInvoiceId, sslcommerzTranId, period update'},
+    'webhookDeliveries':{ops:['insert'],        note:'SSLCommerz IPN verification record'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 03 — END USER SIGNUP
+// ─────────────────────────────────────────────
+{
+  id:'f03', num:'03',
+  title:'End User প্রথমবার Signup করে (YoPM — নতুন user)',
+  subtitle:'Auth — First product signup',
+  desc:'একজন brand new user YoPM-এ sign up করছে — YoCore-তে আগে কোনো account নেই। YoPM নিজে কোনো auth logic handle করে না — সব YoCore API-তে forward করে। YoCore একটি নতুন <code style="background:#1c2128;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">users</code> document তৈরি করে এবং <code style="background:#1c2128;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">productUsers</code>-এ YoPM-এর সাথে link করে। Same email দিয়ে YoSuite signup-এর flow দেখতে → Flow 09।',
+  actors:['browser','product-app','yocore-api','mongodb','email'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoPM signup form fill করো: name, email, password',
+      detail:'User yopm.io/signup-এ গিয়ে form fill করে Submit করে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore API-তে signup request forward করো',
+      detail:'YoPM backend নিজে user তৈরি করে না। X-API-Key header সহ YoCore-কে call করে। Raw password কখনো log করে না।',
+      payload:'POST https://api.yocore.io/v1/auth/signup\nHeaders:\n  X-API-Key: yc_live_a7b3c9d2e1f4\n  Content-Type: application/json\n{\n  "name": { "first": "Karim", "last": "Hasan" },\n  "email": "karim@example.com",\n  "password": "SecurePass123!",\n  "product_id": "prod_yopm_objectid"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Input validate + Rate limit check',
+      detail:'Email format, password strength (min 8 chars, uppercase, number) check। Redis-এ IP-based rate limit check।',
+      payload:null,
+      db:[
+        {c:'users', op:'read', f:'email দিয়ে duplicate check (email already exists?)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'User record তৈরি করো — status: UNVERIFIED',
+      detail:'Password Argon2id দিয়ে hash হয়। Raw password কোথাও store হয় না। User status UNVERIFIED — email verify না হওয়া পর্যন্ত product features block।',
+      payload:null,
+      db:[
+        {c:'users',       op:'insert', f:'email, passwordHash (Argon2id), name.first, name.last, status: UNVERIFIED, onboarded: false, createdAt'},
+        {c:'productUsers',op:'insert', f:'userId, productId, status: ACTIVE, joinedAt ← now'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Email verification token generate করো',
+      detail:'Random 32-byte token generate। SHA-256 hash করে DB-তে save। Raw token email-এ পাঠানো হয়। 24 ঘন্টা expiry। MongoDB TTL index auto-delete করবে expired tokens।',
+      payload:null,
+      db:[
+        {c:'authTokens', op:'insert', f:'type: EMAIL_VERIFICATION, tokenHash (SHA-256), userId, expiresAt: +24h, usedAt: null'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'Verification email পাঠাও (Resend)',
+      detail:'Product-এর configured fromEmail ব্যবহার করে। "noreply@yopm.io" থেকে যায় — YoCore-এর address না।',
+      payload:'Email:\n  From: YoPM Team <noreply@yopm.io>\n  To: karim@example.com\n  Subject: Verify your YoPM account\n  Link: https://yopm.io/verify-email?token=raw_token_abc123\n  Expires: 24 hours',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'"Check your email" screen দেখাও',
+      detail:'YoCore response পেয়ে YoPM user-কে email check করতে বলে। "Resend" option দেয়।',
+      payload:'YoCore Response:\n{\n  "user_id": "usr_karim_001",\n  "status": "verification_pending"\n}',
+      db:[]
+    }
+  ],
+  dbHit:{
+    'users':        {ops:['read','insert'], note:'Duplicate check, নতুন user (UNVERIFIED, Argon2id hash)'},
+    'productUsers': {ops:['insert'],        note:'User ↔ Product link তৈরি'},
+    'authTokens':   {ops:['insert'],        note:'Email verification token (24h TTL)'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 04 — EMAIL VERIFICATION
+// ─────────────────────────────────────────────
+{
+  id:'f04', num:'04',
+  title:'Email Verification — Account Activation',
+  subtitle:'Auth — Email verify',
+  desc:'User email-এ আসা link click করে। YoCore token validate করে, user status ACTIVE করে, এবং তার জন্য immediately session তৈরি করে — আলাদা করে login করতে হয় না।',
+  actors:['browser','product-app','yocore-api','mongodb'],
+  steps:[
+    {
+      actor:'browser',
+      action:'Email inbox-এ গিয়ে "Verify My Email" button click করো',
+      detail:'User email-এ ক্লিক করে। URL-এ raw token থাকে।',
+      payload:'URL: https://yopm.io/verify-email?token=raw_token_abc123',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'URL থেকে token extract করে YoCore-তে পাঠাও',
+      detail:'YoPM URL parameter থেকে token নিয়ে YoCore API call করে।',
+      payload:'GET https://api.yocore.io/v1/auth/verify-email\n  ?token=raw_token_abc123\n  &product_id=prod_yopm_objectid\nHeaders: X-API-Key: yc_live_a7b3c9d2e1f4',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Token hash করো, DB-তে খোঁজো, validate করো',
+      detail:'Received raw token → SHA-256 hash → DB-তে খোঁজো। Check: expired কিনা (expiresAt < now?), already used কিনা (usedAt != null?)।',
+      payload:null,
+      db:[
+        {c:'authTokens', op:'read', f:'tokenHash = SHA256(raw_token), expiry check, usedAt check'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'User ACTIVE করো, Token "used" mark করো',
+      detail:'Token valid হলে দুটো atomic update। Token পরে আর use করা যাবে না।',
+      payload:null,
+      db:[
+        {c:'users',      op:'update', f:'status: UNVERIFIED → ACTIVE'},
+        {c:'authTokens', op:'update', f:'usedAt ← now (one-time use enforced)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Session তৈরি করো, JWT issue করো',
+      detail:'User এখন verified। YoCore immediately login করিয়ে দেয় — user-কে আলাদা করে signin করতে হবে না।',
+      payload:null,
+      db:[
+        {c:'sessions', op:'insert', f:'userId, jti (unique JWT ID), refreshTokenHash, ip, userAgent, expiresAt (+7d)'}
+      ]
+    },
+    {
+      actor:'product-app',
+      action:'Onboarding Wizard দেখাও (user.onboarded = false)',
+      detail:'User এখন logged in। user.onboarded = false তাই YoPM onboarding wizard দেখায়: workspace name, timezone, date format।',
+      payload:'YoCore Response:\n{\n  "access_token": "eyJhbGci...", // 15 min\n  "user": {\n    "id": "usr_karim_001",\n    "status": "ACTIVE",\n    "onboarded": false\n  }\n}\n// refresh_token: httpOnly cookie',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'Onboarding complete → POST /v1/auth/finalize-onboarding',
+      detail:'User workspace name দিলে YoCore workspace তৈরি করে, user-কে OWNER করে, onboarded = true set করে।',
+      payload:'POST /v1/auth/finalize-onboarding\n{\n  "user_id": "usr_karim_001",\n  "workspace_name": "Karim\'s Team",\n  "timezone": "Asia/Dhaka",\n  "date_format": "DD/MM/YYYY"\n}',
+      db:[
+        {c:'workspaces',       op:'insert', f:'productId, name, slug, ownerId, status: ACTIVE, createdAt'},
+        {c:'workspaceMembers', op:'insert', f:'workspaceId, userId, role: OWNER, joinedAt ← now'},
+        {c:'users',            op:'update', f:'onboarded ← true, timezone, dateFormat preferences'}
+      ]
+    }
+  ],
+  dbHit:{
+    'users':            {ops:['update'],         note:'status ACTIVE, onboarded ← true, preferences'},
+    'authTokens':       {ops:['read','update'],  note:'Token validate, usedAt set (one-time)'},
+    'sessions':         {ops:['insert'],         note:'First session তৈরি — auto logged in'},
+    'workspaces':       {ops:['insert'],         note:'Default workspace তৈরি (onboarding-এ)'},
+    'workspaceMembers': {ops:['insert'],         note:'User OWNER হিসেবে workspace-এ যোগ'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 05 — SIGNIN + SESSION MANAGEMENT
+// ─────────────────────────────────────────────
+{
+  id:'f05', num:'05',
+  title:'End User Signin + Token Refresh',
+  subtitle:'Auth — Signin',
+  desc:'User YoPM-এ ফিরে এসে login করছে। YoCore credentials verify করে, session তৈরি করে, JWT দেয়। Access token expire হলে background-এ silent refresh হয় — user logout হয় না।',
+  actors:['browser','product-app','yocore-api','mongodb','redis'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoPM signin form-এ email + password দাও',
+      detail:'User yopm.io/signin-এ যায়, credentials enter করে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore-তে signin request পাঠাও',
+      detail:'YoPM backend YoCore-কে call করে। YoPM কখনো password store করে না।',
+      payload:'POST https://api.yocore.io/v1/auth/signin\nHeaders: X-API-Key: yc_live_a7b3c9d2e1f4\n{\n  "email": "karim@example.com",\n  "password": "SecurePass123!",\n  "product_id": "prod_yopm_objectid",\n  "remember_me": false\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Rate limit check (Redis)',
+      detail:'Redis-এ check: এই email + এই IP থেকে কতবার failed attempt? 5 বার হলে 15 মিনিট lock এবং user-কে email notification।',
+      payload:'Redis keys:\n  rateLimit:signin:email:karim@example.com\n  rateLimit:signin:ip:103.x.x.x',
+      db:[
+        {c:'redis (not Mongo)', op:'read', f:'Rate limit counters — fail হলে account lock check'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Password verify করো (Argon2id)',
+      detail:'DB থেকে user আনো, Argon2id.verify(password, hash) করো। Wrong হলে failedAttempts++ এবং Redis counter increment।',
+      payload:null,
+      db:[
+        {c:'users', op:'read',   f:'email দিয়ে user নাও (passwordHash field include করো)'},
+        {c:'users', op:'update', f:'✅ Correct: lastLoginAt ← now, failedAttempts ← 0\n                               ❌ Wrong: failedAttempts++ (lock if ≥5)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Session তৈরি করো + JWT issue করো',
+      detail:'JWT payload এ role, plan, workspace_id সব থাকে। Product locally decode করতে পারে — network call ছাড়া।',
+      payload:null,
+      db:[
+        {c:'sessions', op:'insert', f:'userId, productId, jti, refreshTokenHash, ip, userAgent, location, expiresAt\n  access: +15min | refresh: +7d (or +30d if remember_me)'}
+      ]
+    },
+    {
+      actor:'browser',
+      action:'Tokens store করো, Dashboard load করো',
+      detail:'Access token JS memory-তে রাখো। Refresh token browser-এ httpOnly cookie হিসেবে। সব YoPM API call-এ Authorization: Bearer access_token পাঠাও।',
+      payload:'// JWT Payload (decoded):\n{\n  "sub": "usr_karim_001",\n  "product_id": "prod_yopm",\n  "workspace_id": "ws_karims_team",\n  "role": "OWNER",\n  "plan": "free",\n  "iat": 1745234400,\n  "exp": 1745235300, // +15 min\n  "jti": "tok_unique_id"\n}',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'⏰ Token expire হলে: Silent Refresh (user কিছু বোঝে না)',
+      detail:'Access token expire হওয়ার আগে বা 401 পেলে YoPM automatically refresh করে। Refresh token rotate হয় — old token invalidate হয়।',
+      payload:'POST /v1/auth/refresh\nCookie: refresh_token=old_refresh_hash (httpOnly)\n\nResponse:\n{\n  "access_token": "eyJ... (new 15min token)"\n}\nSet-Cookie: refresh_token=new_rotated_token; HttpOnly; Secure',
+      db:[
+        {c:'sessions', op:'update', f:'refreshTokenHash ← newHash (old token invalidated — rotation)'}
+      ]
+    }
+  ],
+  dbHit:{
+    'users':    {ops:['read','update'], note:'Password verify, lastLoginAt + failedAttempts update'},
+    'sessions': {ops:['insert','update'], note:'New session তৈরি, token rotation on refresh'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 06 — CREATE BILLING PLAN
+// ─────────────────────────────────────────────
+{
+  id:'f06', num:'06',
+  title:'Billing Plan তৈরি করো (Super Admin)',
+  subtitle:'Billing setup',
+  desc:'তুমি YoCore dashboard থেকে YoPM-এর জন্য একটা "Pro" plan তৈরি করছো। YoCore Stripe-এ automatically Price object তৈরি করে এবং plan DB-তে save করে। Plan publish করলে users subscribe করতে পারবে।',
+  actors:['super-admin','yocore-api','mongodb','stripe'],
+  steps:[
+    {
+      actor:'super-admin',
+      action:'Dashboard → YoPM → Billing → Plans → "Create Plan"',
+      detail:'Plan creation form খোলে। এখানে price, limits, features সব set করবে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'super-admin',
+      action:'Plan details fill করো',
+      detail:'Price cents-এ দাও (2900 = $29.00)। Feature limits-এ -1 মানে unlimited। Custom limits product-specific (e.g., max_projects)।',
+      payload:'{\n  "name": "Pro",\n  "slug": "pro",\n  "price": 2900,\n  "currency": "usd",\n  "billingCycle": "monthly",\n  "trialDays": 14,\n  "isFree": false,\n  "limits": {\n    "maxWorkspaces": 5,\n    "maxSeatsPerWorkspace": 20,\n    "custom": {\n      "max_projects": -1,\n      "max_storage_gb": 50\n    }\n  },\n  "features": [\n    "Unlimited projects",\n    "20 seats per workspace",\n    "Priority support",\n    "50GB storage"\n  ]\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Stripe-এ Product + Price তৈরি করো',
+      detail:'YoCore Stripe API-তে প্রথমে Product তৈরি করে, তারপর Price। Stripe-এর price_id future checkout-এ use হবে।',
+      payload:'// Stripe API calls:\nconst prod = await stripe.products.create({ name: "YoPM Pro" });\nconst price = await stripe.prices.create({\n  product: prod.id,\n  unit_amount: 2900,\n  currency: "usd",\n  recurring: { interval: "month" }\n});\n// price.id = "price_1Pxxx..." → save to DB',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Plan DB-তে DRAFT হিসেবে save করো',
+      detail:'Stripe price_id সহ plan save হয়। DRAFT মানে users এখনো দেখতে পাবে না — শুধু তুমি preview করতে পারবে।',
+      payload:null,
+      db:[
+        {c:'billingPlans', op:'insert', f:'productId, name, slug, price: 2900, currency, billingCycle, trialDays: 14, limits (JSONB), features[], stripePriceId, stripeProductId, status: DRAFT'}
+      ]
+    },
+    {
+      actor:'super-admin',
+      action:'Plan preview করো → "Publish" click করো',
+      detail:'Preview-এ দেখতে পাবে pricing page-এ কেমন দেখাবে। "Publish" করলে status ACTIVE হয়।',
+      payload:null,
+      db:[
+        {c:'billingPlans', op:'update', f:'status: DRAFT → ACTIVE'}
+      ]
+    },
+    {
+      actor:'super-admin',
+      action:'Plan এখন users-এর কাছে visible এবং subscribable',
+      detail:'YoPM-এর pricing page এই plan দেখাতে পারবে। Users এখন Pro plan subscribe করতে পারবে।',
+      payload:null, db:[]
+    }
+  ],
+  dbHit:{
+    'billingPlans': {ops:['insert','update'], note:'নতুন plan: DRAFT → ACTIVE, Stripe price_id সহ'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 07 — USER SUBSCRIBES TO PLAN
+// ─────────────────────────────────────────────
+{
+  id:'f07', num:'07',
+  title:'User Plan Subscribe করে (Stripe Flow)',
+  subtitle:'Billing — Checkout',
+  desc:'User YoPM-এর pricing page থেকে Pro plan select করে। YoCore Stripe Checkout session তৈরি করে, user Stripe-এর নিজস্ব page-এ payment করে, webhook আসে, তারপর subscription activate হয়। YoCore বা YoPM কখনো card data দেখে না।',
+  actors:['browser','product-app','yocore-api','mongodb','stripe','email'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoPM pricing page থেকে "Pro — $29/month" → "Upgrade" click',
+      detail:'User upgrade করতে চায়। YoPM button click handle করে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore-তে checkout session চাও',
+      detail:'YoPM backend YoCore-কে call করে checkout URL পেতে।',
+      payload:'POST https://api.yocore.io/v1/billing/checkout\nHeaders: X-API-Key: yc_live_a7b3c9d2e1f4\nAuthorization: Bearer user_access_token\n{\n  "user_id": "usr_karim_001",\n  "workspace_id": "ws_karims_team",\n  "plan_id": "plan_pro_objectid",\n  "product_id": "prod_yopm_objectid"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Stripe Customer তৈরি করো (বা existing retrieve করো)',
+      detail:'User-এর জন্য আগে Stripe Customer আছে কিনা check। না থাকলে তৈরি করো।',
+      payload:'// Stripe API:\nconst customer = await stripe.customers.create({\n  email: "karim@example.com",\n  name: "Karim Hasan",\n  metadata: { yocore_user_id: "usr_karim_001" }\n});',
+      db:[
+        {c:'subscriptions', op:'read', f:'stripeCustomerId আছে কিনা check করো'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Stripe Checkout Session তৈরি করো → URL return করো',
+      detail:'Hosted checkout page-এর URL তৈরি হয়। Metadata-তে workspace_id + plan_id রাখো — webhook-এ দরকার হবে।',
+      payload:'// Stripe API:\nconst session = await stripe.checkout.sessions.create({\n  customer: "cus_stripe_xxx",\n  mode: "subscription",\n  line_items: [{ price: "price_1Pxxx", quantity: 1 }],\n  subscription_data: {\n    trial_period_days: 14,\n    metadata: {\n      workspace_id: "ws_karims_team",\n      plan_id: "plan_pro_objectid"\n    }\n  },\n  success_url: "https://yopm.io/billing/success?session_id={CHECKOUT_SESSION_ID}",\n  cancel_url: "https://yopm.io/pricing"\n});\n\nreturn { checkout_url: session.url }',
+      db:[]
+    },
+    {
+      actor:'browser',
+      action:'Stripe Checkout page-এ redirect হও, card দাও',
+      detail:'User Stripe-এর নিজস্ব secure page-এ card details দেয়। YoCore বা YoPM এই data কখনো দেখে না।',
+      payload:'// Redirect to:\n"https://checkout.stripe.com/pay/cs_test_xxx..."',
+      db:[]
+    },
+    {
+      actor:'stripe',
+      action:'Payment process করে → success_url-এ redirect করো',
+      detail:'Stripe payment process করে। User YoPM-এর success page-এ চলে আসে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'stripe',
+      action:'Webhook পাঠাও: checkout.session.completed',
+      detail:'Stripe automatically YoCore-এর webhook endpoint-এ signed POST করে।',
+      payload:'POST https://api.yocore.io/v1/webhooks/stripe\nStripe-Signature: t=1745234400,v1=hmac_sha256_value\n{\n  "type": "checkout.session.completed",\n  "data": {\n    "object": {\n      "id": "cs_xxx",\n      "customer": "cus_stripe_xxx",\n      "subscription": "sub_stripe_xxx",\n      "subscription_data": {\n        "metadata": {\n          "workspace_id": "ws_karims_team",\n          "plan_id": "plan_pro_objectid"\n        }\n      }\n    }\n  }\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Webhook signature verify করো (Stripe-Signature header)',
+      detail:'stripe.webhooks.constructEvent() দিয়ে verify। Signature invalid হলে 400 return এবং ignore। Fake webhook block হয়।',
+      payload:null, db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Subscription record তৈরি করো — status: ACTIVE',
+      detail:'Metadata থেকে workspace_id + plan_id নিয়ে subscription create করো। Trial period থাকলে status TRIALING।',
+      payload:null,
+      db:[
+        {c:'subscriptions', op:'insert', f:'userId, workspaceId, productId, planId, stripeCustomerId, stripeSubscriptionId, status: TRIALING (14d trial), currentPeriodStart, currentPeriodEnd, trialEndsAt'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'YoPM-কে webhook পাঠাও: subscription.activated',
+      detail:'YoPM-এর configured webhook URL-এ HMAC-signed notification পাঠাও। YoPM এই event পেয়ে Pro features unlock করবে।',
+      payload:'POST https://yopm.io/webhooks/yocore\nX-YoCore-Signature: sha256=hmac_value\n{\n  "event": "subscription.activated",\n  "workspace_id": "ws_karims_team",\n  "plan": {\n    "name": "Pro",\n    "limits": {\n      "maxWorkspaces": 5,\n      "maxSeatsPerWorkspace": 20,\n      "custom": { "max_projects": -1 }\n    }\n  },\n  "trial_ends_at": "2026-05-05T00:00:00Z"\n}',
+      db:[
+        {c:'webhookDeliveries', op:'insert', f:'productId, event: subscription.activated, payload, targetUrl, status: SUCCESS/FAILED, attempts: 1'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'"Subscription activated" email পাঠাও',
+      detail:'User-কে confirmation email যায়। Trial info, next billing date সব include।',
+      payload:'Template: payment_succeeded\nFrom: noreply@yopm.io\nTo: karim@example.com\nContent:\n  Plan: Pro ($29/month)\n  Trial ends: May 5, 2026\n  First charge: May 5, 2026',
+      db:[]
+    }
+  ],
+  dbHit:{
+    'subscriptions':    {ops:['read','insert'],  note:'Customer check, তারপর নতুন subscription (TRIALING/ACTIVE)'},
+    'webhookDeliveries':{ops:['insert'],         note:'Product notification delivery record'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 08 — PAYMENT FAIL → GRACE → SUSPENSION
+// ─────────────────────────────────────────────
+{
+  id:'f08', num:'08',
+  title:'Payment Fail → Grace Period → 85-Day Deletion',
+  subtitle:'Billing lifecycle',
+  desc:'User-এর card fail করলে কী হয়? YoCore exact timelines follow করে: Day 1/5/7 payment notifications → subscription cancel → account suspend → Day 30/60 warnings → Day 85 তে সব data permanently deleted। এটা irreversible।',
+  actors:['stripe','yocore-api','mongodb','email'],
+  steps:[
+    {
+      actor:'stripe',
+      action:'Payment retry fail → invoice.payment_failed webhook',
+      detail:'Stripe automatically retry করে (smart retries)। সব retry fail হলে YoCore-কে webhook পাঠায়।',
+      payload:'POST /v1/webhooks/stripe\n{\n  "type": "invoice.payment_failed",\n  "data": { "object": {\n    "customer": "cus_stripe_xxx",\n    "subscription": "sub_stripe_xxx",\n    "amount_due": 2900,\n    "attempt_count": 3\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Subscription PAST_DUE করো, workspace flags set করো',
+      detail:'Subscription status update। Workspace-এ payment failure tracking flags set — background job এগুলো দেখে notification পাঠাবে।',
+      payload:null,
+      db:[
+        {c:'subscriptions', op:'update', f:'status ← PAST_DUE'},
+        {c:'workspaces',    op:'update', f:'paymentFailed ← true, paymentFailedDate ← now\npaymentFailedDay1Sent ← false, Day5Sent ← false, Day7Sent ← false'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⏰ Day 1: "Payment failed — Stripe retry করবে" email',
+      detail:'Daily background job check করে paymentFailed=true এবং Day1Sent=false। Notification পাঠিয়ে flag update করে।',
+      payload:'Template: payment_failed_day_1\nMessage: "আপনার payment process হয়নি। Stripe\nআবার retry করবে। কোনো action লাগবে না।"',
+      db:[
+        {c:'workspaces', op:'update', f:'paymentFailedDay1Sent ← true'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⏰ Day 5: "Payment method update করুন" email',
+      detail:'Stripe Customer Portal link দেওয়া হয় যেখানে user card update করতে পারবে।',
+      payload:'Template: payment_failed_day_5\nMessage: "এখনো payment process হয়নি। আপনার\npayment method update করুন নয়তো\naccount suspend হতে পারে।\n[Update Payment Method]"',
+      db:[
+        {c:'workspaces', op:'update', f:'paymentFailedDay5Sent ← true'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⏰ Day 7: "Final warning — আগামীকাল cancel" email',
+      detail:'Last chance notification। এর পরে Stripe subscription delete করবে।',
+      payload:'Template: payment_failed_day_7\nMessage: "আগামীকাল আপনার subscription\ncancel হবে। এখনো সময় আছে।"',
+      db:[
+        {c:'workspaces', op:'update', f:'paymentFailedDay7Sent ← true'}
+      ]
+    },
+    {
+      actor:'stripe',
+      action:'Subscription cancel — customer.subscription.deleted webhook',
+      detail:'Stripe সব attempt শেষ করে subscription delete করে। YoCore-কে webhook পাঠায়।',
+      payload:'{\n  "type": "customer.subscription.deleted",\n  "data": { "object": {\n    "id": "sub_stripe_xxx",\n    "status": "canceled"\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'⛔ Workspace SUSPEND করো — 85-day clock শুরু',
+      detail:'Workspace inactive। User access করতে পারবে না। Subscription canceled।',
+      payload:null,
+      db:[
+        {c:'workspaces',    op:'update', f:'active ← false, accountSuspended ← true, suspensionDate ← now\nsuspensionDay30Sent ← false, Day60Sent ← false, Day85Sent ← false'},
+        {c:'subscriptions', op:'update', f:'status ← CANCELED, canceledAt ← now'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⏰ Day 30: "Account suspended" email — reactivation link দাও',
+      detail:'Suspension থেকে 30 দিন পরে। User এখনো reactivate করতে পারবে।',
+      payload:null,
+      db:[
+        {c:'workspaces', op:'update', f:'suspensionDay30Sent ← true'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⏰ Day 60: "Data আর 25 দিনে delete হবে" email',
+      detail:'Final warning before permanent deletion।',
+      payload:null,
+      db:[
+        {c:'workspaces', op:'update', f:'suspensionDay60Sent ← true'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'🔥 Day 85: PERMANENT DATA DELETION — IRREVERSIBLE',
+      detail:'Background job workspace suspended > 85 days খুঁজে। সব data permanently delete করে। এটা undo করা সম্ভব না।',
+      payload:'// Background job (runs daily):\nconst expired = await Workspace.find({\n  accountSuspended: true,\n  suspensionDate: { $lt: 85_days_ago },\n  dataDeleted: false\n});\n// Delete cascade:',
+      db:[
+        {c:'workspaceMembers', op:'delete', f:'workspace-এর সব membership records'},
+        {c:'invitations',      op:'delete', f:'workspace-এর সব pending invitations'},
+        {c:'roles',            op:'delete', f:'workspace-এর custom role definitions'},
+        {c:'subscriptions',    op:'delete', f:'workspace-এর subscription history'},
+        {c:'workspaces',       op:'delete', f:'workspace document itself → dataDeleted: true log করো'}
+      ]
+    }
+  ],
+  dbHit:{
+    'subscriptions':    {ops:['update','delete'], note:'PAST_DUE → CANCELED → deleted on day 85'},
+    'workspaces':       {ops:['update','delete'], note:'Flags set, active←false, suspended, eventual deletion'},
+    'workspaceMembers': {ops:['delete'],          note:'Day 85: সব member records removed'},
+    'roles':            {ops:['delete'],          note:'Day 85: Custom roles deleted'},
+    'invitations':      {ops:['delete'],          note:'Day 85: Pending invitations deleted'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 09 — SECOND PRODUCT SIGNUP (SAME USER)
+// ─────────────────────────────────────────────
+{
+  id:'f09', num:'09',
+  title:'Same User — Second Product Signup (YoSuite)',
+  subtitle:'Auth — 2nd product, same email',
+  desc:'Karim ইতিমধ্যে YoPM-এ signup করে email verify করেছে। এখন সে YoSuite-এ <strong style="color:#e6edf3">same email</strong> দিয়ে signup করছে। Key insight: <strong style="color:#3fb950">কোনো নতুন users document তৈরি হবে না</strong> — শুধু একটা নতুন productUsers row যোগ হবে। Email আগেই verified থাকায় re-verification-ও লাগবে না।',
+  actors:['browser','product-app','yocore-api','mongodb','email'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoSuite signup form-এ same email + password দাও',
+      detail:'User yosuite.io/signup-এ যায়। একই email ও password enter করে। User জানে না YoCore backend-এ আছে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore-তে signup request পাঠাও (product_id: yosuite)',
+      detail:'YoSuite backend YoCore-কে call করে। একমাত্র পার্থক্য: product_id এখন YoSuite-এর।',
+      payload:'POST https://api.yocore.io/v1/auth/signup\nHeaders: X-API-Key: yc_live_yosuite_key\n{\n  "email": "karim@example.com",     // ← same email\n  "password": "SecurePass123!",      // ← same password\n  "product_id": "prod_yosuite_objectid"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'users collection-এ email দিয়ে search → FOUND (usr_karim_001)',
+      detail:'Email already registered। YoCore detect করে এটা নতুন signup না — existing user নতুন product-এ যোগ দিতে চাইছে।',
+      payload:null,
+      db:[
+        {c:'users', op:'read', f:'email: "karim@example.com" → found! _id: usr_karim_001, status: ACTIVE'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Password verify করো (Argon2id) — ownership proof',
+      detail:'Submitted password টা existing passwordHash-এর বিরুদ্ধে verify করে। এটা prove করে যে ব্যক্তি account-এর owner। Wrong হলে generic error — email exist কিনা confirm করো না (enumeration protection)।',
+      payload:'// Argon2id.verify(submittedPassword, existingHash)\n// ✅ Correct → proceed\n// ❌ Wrong  → "Invalid credentials"\n//             (do NOT say "email already registered")',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'productUsers check: user কি already YoSuite-এ আছে?',
+      detail:'{ userId: usr_karim_001, productId: prod_yosuite } খোঁজো। না পেলে নতুন row তৈরি করো।',
+      payload:null,
+      db:[
+        {c:'productUsers', op:'read',   f:'{ userId: usr_karim_001, productId: prod_yosuite } → not found ✅'},
+        {c:'productUsers', op:'insert', f:'userId: usr_karim_001, productId: prod_yosuite, status: ACTIVE, joinedAt: now'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'✅ Email verification SKIP — users.status === ACTIVE (global)',
+      detail:'users.status ACTIVE মানে user YoPM-এ আগেই email verify করেছে। Verification status global — product-specific না। তাই YoSuite-এর জন্য আলাদা verification email পাঠানোর দরকার নেই। authTokens record তৈরি হয় না।',
+      payload:'// Before:\n// authTokens: (none for YoSuite)\n//\n// This is the KEY difference from Flow 03:\n// Flow 03 (new user)   → authTokens INSERT + email sent\n// Flow 09 (known user) → authTokens SKIPPED + no email',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'YoSuite session তৈরি করো + JWT issue করো',
+      detail:'YoPM session-টা untouched থাকে। YoSuite-এর জন্য আলাদা product-scoped session তৈরি হয়।',
+      payload:null,
+      db:[
+        {c:'sessions', op:'insert', f:'userId: usr_karim_001, productId: prod_yosuite\njti: (new unique), refreshTokenHash, ip, userAgent, expiresAt: +7d\n\n(YoPM session: unchanged, still active)'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'"Account linked to YoSuite" security notice email',
+      detail:'User-কে জানানো হয় existing account YoSuite-এ link হয়েছে। Security warning সহ।',
+      payload:'From: YoSuite Team <noreply@yosuite.io>\nTo: karim@example.com\nSubject: Your account was linked to YoSuite\n\n"আপনার existing account YoSuite-এ যোগ করা হয়েছে।\nযদি এটা আপনি না করে থাকেন:\n[Secure My Account → change password]"',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoSuite Workspace Setup — user.onboarded চেক করো না!',
+      detail:'user.onboarded globally true কিন্তু YoSuite-এ কোনো workspace নেই। Product workspace existence check করে, onboarded flag না। এটা একটা critical implementation detail।',
+      payload:'// ❌ Wrong check:\nif (!user.onboarded) showWizard();\n\n// ✅ Correct check:\nconst ws = await Workspace.findOne({\n  productId: "prod_yosuite",\n  ownerId: "usr_karim_001"\n});\nif (!ws) showWorkspaceSetupWizard();',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'POST /v1/auth/finalize-onboarding → YoSuite workspace তৈরি',
+      detail:'YoSuite-এর নতুন workspace তৈরি হয়। YoPM workspace untouched থাকে।',
+      payload:'{\n  "user_id": "usr_karim_001",\n  "product_id": "prod_yosuite",\n  "workspace_name": "Karim\'s Suite",\n  "timezone": "Asia/Dhaka"\n}',
+      db:[
+        {c:'workspaces',       op:'insert', f:'productId: prod_yosuite, name: "Karim\'s Suite", ownerId: usr_karim_001\n(YoPM workspace: unchanged)'},
+        {c:'workspaceMembers', op:'insert', f:'workspaceId: ws_yosuite_new, userId: usr_karim_001, role: OWNER'}
+      ]
+    }
+  ],
+  dbHit:{
+    'users':            {ops:['read'],           note:'⚡ শুধু READ — নতুন document তৈরি হয় না!'},
+    'productUsers':     {ops:['read','insert'],  note:'YoSuite link check, তারপর নতুন row insert'},
+    'sessions':         {ops:['insert'],         note:'YoSuite-scoped session (YoPM session unchanged)'},
+    'workspaces':       {ops:['insert'],         note:'YoSuite-এর নতুন workspace (YoPM unchanged)'},
+    'workspaceMembers': {ops:['insert'],         note:'User OWNER of new YoSuite workspace'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 10 — PROFILE UPDATE (GLOBAL vs LOCAL)
+// ─────────────────────────────────────────────
+{
+  id:'f10', num:'10',
+  title:'Profile Update — Global vs Product-Specific',
+  subtitle:'User Management',
+  desc:'User YoSuite-এ name বা email update করছে। Global fields (name, avatar) সব product-এ একসাথে change হয়। Product-specific settings (notification prefs) শুধু সেই product-এ। Email change সবচেয়ে sensitive — সব sessions revoke হয়।',
+  actors:['browser','product-app','yocore-api','mongodb','redis','email'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoSuite "Account Settings"-এ name update করো',
+      detail:'User তার display name পরিবর্তন করতে চায়। এটা সবচেয়ে simple case।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore-তে profile update পাঠাও',
+      detail:'YoSuite backend YoCore-কে call করে। users collection update হবে — YoPM-এও reflect হবে।',
+      payload:'PUT https://api.yocore.io/v1/users/usr_karim_001\nAuthorization: Bearer access_token\n{\n  "name": { "first": "Karim", "last": "Ahmed" },\n  "avatarUrl": "https://cdn.example.com/avatar.jpg"\n}',
+      db:[
+        {c:'users', op:'update', f:'name.first ← "Karim", name.last ← "Ahmed", avatarUrl ← new URL\n(YoPM, YoSuite — সব product এই same document পড়ে)'}
+      ]
+    },
+    {
+      actor:'product-app',
+      action:'Product-specific preference update (YoSuite only)',
+      detail:'এই data YoPM-এ যাবে না — productUsers.preferences JSONB-এ store হয়।',
+      payload:'PUT /v1/users/usr_karim_001/preferences\n{\n  "product_id": "prod_yosuite",\n  "preferences": {\n    "emailDigest": "weekly",\n    "sidebarCollapsed": true,\n    "lastWorkspaceId": "ws_yosuite_abc"\n  }\n}',
+      db:[
+        {c:'productUsers', op:'update', f:'{ userId: usr_karim_001, productId: prod_yosuite }.preferences ← new JSONB\n(YoPM productUsers row: unchanged)'}
+      ]
+    },
+    {
+      actor:'browser',
+      action:'📧 Email Change করতে চাইলে — আলাদা flow (সবচেয়ে sensitive)',
+      detail:'Email change করলে সব session revoke হয় এবং re-verification লাগে। নিচের steps দেখো।',
+      payload:'PUT /v1/users/usr_karim_001/email\n{\n  "new_email": "karim.ahmed@example.com",\n  "current_password": "SecurePass123!"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'New email duplicate check → verification token তৈরি করো',
+      detail:'নতুন email already কারো কাছে নেই তো? Check করো। তারপর pendingEmail set, token তৈরি।',
+      payload:null,
+      db:[
+        {c:'users',      op:'read',   f:'new_email ইতিমধ্যে কেউ use করে কিনা check'},
+        {c:'users',      op:'update', f:'pendingEmail ← "karim.ahmed@example.com"\n(email এখনো পুরোনোটাই — verify হওয়া পর্যন্ত)'},
+        {c:'authTokens', op:'insert', f:'type: EMAIL_CHANGE, tokenHash, userId, targetEmail: new_email, expiresAt: +1h'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'নতুন email address-এ verification link পাঠাও',
+      detail:'Link-এ click করলেই email swap হবে।',
+      payload:'To: karim.ahmed@example.com (NEW address)\nSubject: Confirm your new email\n"Click to confirm: https://yosuite.io/confirm-email?token=xxx"',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'User link click করলে — email swap + ⚡ ALL sessions revoke',
+      detail:'Token verify হলে email atomically swap হয়। তারপর সব product-এর সব session invalidate হয় — security requirement।',
+      payload:null,
+      db:[
+        {c:'users',    op:'update', f:'email ← pendingEmail, pendingEmail ← null'},
+        {c:'sessions', op:'delete', f:'userId: usr_karim_001 — সব products-এর সব sessions DELETE\n(YoPM + YoSuite + future products — সব)'}
+      ]
+    },
+    {
+      actor:'redis',
+      action:'সব existing JTIs blocklist-এ add করো',
+      detail:'Existing JWTs 15 মিনিট পর্যন্ত valid থাকতো — Redis blocklist দিয়ে immediately revoke করো।',
+      payload:'// Redis:\nREDIS.SADD("jti_blocklist", jti_1, jti_2, ...)  // all active JTIs\nREDIS.EXPIRE("jti_blocklist", 86400)  // 24h TTL',
+      db:[]
+    },
+    {
+      actor:'email',
+      action:'Old email address-এ security alert পাঠাও',
+      detail:'পুরোনো email-এ alert — যদি attacker change করে থাকে, real user দেখতে পাবে।',
+      payload:'To: karim@example.com (OLD address)\nSubject: ⚠️ Your email was changed\n"আপনার account email পরিবর্তন হয়েছে।\nযদি আপনি না করে থাকেন: [Lock My Account]"',
+      db:[]
+    }
+  ],
+  dbHit:{
+    'users':      {ops:['read','update'], note:'name/avatar global update বা email swap'},
+    'productUsers':{ops:['update'],      note:'Product-specific prefs update (isolated)'},
+    'authTokens': {ops:['insert'],       note:'Email change verification token (1h TTL)'},
+    'sessions':   {ops:['delete'],       note:'Email change হলে ALL sessions deleted (security)'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 11 — TRIAL PERIOD: START → WARNING → END
+// ─────────────────────────────────────────────
+{
+  id:'f11', num:'11',
+  title:'Trial Period — শুরু থেকে শেষ পর্যন্ত',
+  subtitle:'Billing — Trial lifecycle',
+  desc:'User Pro plan subscribe করলে 14 দিনের trial শুরু হয়। Day 11-এ warning আসে। Day 14-এ দুইটা scenario: payment method আছে → auto-charge → ACTIVE; নেই → subscription cancel → suspension শুরু। এই flow-টা Flow 07 (checkout) এবং Flow 08 (suspension) এর সাথে connected।',
+  actors:['stripe','yocore-api','mongodb','email'],
+  steps:[
+    {
+      actor:'stripe',
+      action:'Day 0: Trial শুরু — subscriptions.status = TRIALING',
+      detail:'Checkout complete হওয়ার পর (Flow 07) subscription তৈরি হয় TRIALING status-এ। trialEndsAt = now + 14d।',
+      payload:'// subscriptions collection:\n{\n  status: "TRIALING",\n  trialEndsAt: "2026-05-05T00:00:00Z",\n  currentPeriodEnd: "2026-05-05T00:00:00Z"\n}',
+      db:[
+        {c:'subscriptions', op:'insert', f:'status: TRIALING, trialEndsAt: +14d (from Flow 07 checkout)'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'Day 0: "Trial শুরু হয়েছে" welcome email',
+      detail:'User জানতে পারে তাদের trial কতদিন, কী features পাচ্ছে, কখন charge হবে।',
+      payload:'Subject: আপনার 14-day Pro trial শুরু হয়েছে!\nContent:\n  Trial ends: May 5, 2026\n  First charge: $29 on May 5, 2026\n  [Manage subscription →]',
+      db:[]
+    },
+    {
+      actor:'stripe',
+      action:'Day 11: customer.subscription.trial_will_end webhook (3 দিন আগে)',
+      detail:'Stripe automatically 3 days আগে এই webhook পাঠায়। YoCore handle করে।',
+      payload:'POST /v1/webhooks/stripe\n{\n  "type": "customer.subscription.trial_will_end",\n  "data": { "object": {\n    "id": "sub_xxx",\n    "trial_end": 1746403200,\n    "default_payment_method": null  // ← no card yet?\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Day 11: Payment method আছে কিনা check করো → সেই অনুযায়ী email পাঠাও',
+      detail:'দুইটা different email — payment method আছে কিনা দেখে।',
+      payload:'// Scenario A: payment method আছে:\n// Email: "Trial শেষ হতে 3 দিন বাকি। May 5-এ $29 charge হবে।"\n\n// Scenario B: payment method নেই:\n// Email: "Trial শেষ হতে 3 দিন বাকি! কার্ড যোগ করুন নয়তো\n// access হারাবেন: [Add Payment Method →]"',
+      db:[
+        {c:'subscriptions', op:'read', f:'stripeCustomerId নিয়ে Stripe API-তে payment method check'}
+      ]
+    },
+    {
+      actor:'stripe',
+      action:'Day 14 — Scenario A: Payment method আছে → Auto-charge',
+      detail:'Stripe automatically charge করে। Invoice তৈরি হয়, payment process হয়।',
+      payload:'// Stripe webhook: invoice.payment_succeeded\n{\n  "type": "invoice.payment_succeeded",\n  "data": { "object": {\n    "subscription": "sub_xxx",\n    "amount_paid": 2900,\n    "status": "paid"\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'✅ Scenario A: Trial → ACTIVE, period dates update করো',
+      detail:'Trial successfully ended, subscription now active. Period এক মাস forward করো।',
+      payload:null,
+      db:[
+        {c:'subscriptions', op:'update', f:'status: TRIALING → ACTIVE\ncurrentPeriodStart ← now\ncurrentPeriodEnd ← now + 30d\ntrialEndsAt ← (keeps historical value)'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'✅ Scenario A: "Payment successful, Pro plan active" email',
+      detail:'User জানে তাদের trial convert হয়েছে, পরের billing date কবে।',
+      payload:'Subject: Pro plan activated! ($29 charged)\nContent:\n  Payment: $29.00 ✓\n  Next billing: June 5, 2026\n  [View invoice →]',
+      db:[]
+    },
+    {
+      actor:'stripe',
+      action:'Day 14 — Scenario B: Payment method নেই → Subscription cancel',
+      detail:'Stripe payment নিতে পারে না, subscription delete করে।',
+      payload:'// Stripe webhook: customer.subscription.deleted\n{\n  "type": "customer.subscription.deleted",\n  "data": { "object": {\n    "id": "sub_xxx",\n    "status": "canceled",\n    "cancellation_details": {\n      "reason": "payment_failed"\n    }\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'⛔ Scenario B: Subscription CANCELED, workspace SUSPEND → 85-day clock',
+      detail:'Trial grace period নেই — immediate suspension। এরপর Flow 08-এর Day 30/60/85 logic চলবে।',
+      payload:null,
+      db:[
+        {c:'subscriptions', op:'update', f:'status: TRIALING → CANCELED, canceledAt ← now'},
+        {c:'workspaces',    op:'update', f:'active ← false, accountSuspended ← true, suspensionDate ← now\n(85-day deletion clock শুরু — see Flow 08)'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'⛔ Scenario B: "Trial ended, account suspended" email',
+      detail:'Reactivation link দিয়ে — user billing info add করলে আবার activate হবে।',
+      payload:'Subject: Your trial has ended — account suspended\n"Payment method না থাকায় আপনার account\nসাময়িকভাবে suspend করা হয়েছে।\n[Reactivate with payment method →]"',
+      db:[]
+    }
+  ],
+  dbHit:{
+    'subscriptions': {ops:['read','insert','update'], note:'TRIALING → ACTIVE (Scenario A) বা CANCELED (Scenario B)'},
+    'workspaces':    {ops:['update'],                 note:'Scenario B only: suspended ← true, 85-day clock শুরু'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 12 — SUBSCRIPTION AUTO-RENEWAL
+// ─────────────────────────────────────────────
+{
+  id:'f12', num:'12',
+  title:'Subscription Auto-Renewal (মাসিক)',
+  subtitle:'Billing — Renewal',
+  desc:'User Pro plan-এ আছে। প্রতি মাসে Stripe automatically charge করে। Success হলে YoCore period dates update করে — user কিছু করতে হয় না। Failure হলে Flow 08-এর grace period flow শুরু হয়।',
+  actors:['stripe','yocore-api','mongodb','email'],
+  steps:[
+    {
+      actor:'stripe',
+      action:'Renewal date-এ Stripe automatically invoice তৈরি করে card charge করে',
+      detail:'User-এর কোনো action লাগে না। Stripe stored payment method থেকে charge করে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'stripe',
+      action:'✅ Payment success → invoice.payment_succeeded webhook',
+      detail:'YoCore-এর webhook endpoint-এ Stripe signature সহ POST আসে।',
+      payload:'POST /v1/webhooks/stripe\n{\n  "type": "invoice.payment_succeeded",\n  "data": { "object": {\n    "id": "in_xxx",\n    "subscription": "sub_xxx",\n    "amount_paid": 2900,\n    "currency": "usd",\n    "period_start": 1748995200,\n    "period_end":   1751673600,\n    "hosted_invoice_url": "https://invoice.stripe.com/..."\n  }}\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Webhook signature verify করো → subscription period update করো',
+      detail:'Signature valid → subscription dates forward করো। Status এখনো ACTIVE — unchanged।',
+      payload:null,
+      db:[
+        {c:'subscriptions',    op:'update', f:'currentPeriodStart ← period_start\ncurrentPeriodEnd ← period_end\n(status ACTIVE — unchanged)'},
+        {c:'webhookDeliveries',op:'insert', f:'event: invoice.payment_succeeded, status: SUCCESS, processedAt'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'"Subscription renewed" receipt email পাঠাও',
+      detail:'Invoice link সহ renewal confirmation। User জানে পরের billing date।',
+      payload:'Subject: Pro plan renewed — $29.00 charged\nFrom: noreply@yopm.io\nContent:\n  Amount: $29.00\n  Date: June 5, 2026\n  Next renewal: July 5, 2026\n  [View Invoice →]',
+      db:[]
+    },
+    {
+      actor:'stripe',
+      action:'❌ Payment fail হলে → invoice.payment_failed webhook',
+      detail:'Stripe retry করবে (smart retry). সব retry fail হলে YoCore-কে webhook পাঠাবে।',
+      payload:'// If renewal fails → triggers Flow 08\n// Day 1/5/7 notification → cancel → suspension',
+      db:[
+        {c:'subscriptions', op:'update', f:'status ← PAST_DUE (→ then see Flow 08 for full grace period)'}
+      ]
+    }
+  ],
+  dbHit:{
+    'subscriptions':    {ops:['update'],  note:'Period dates forward, status ACTIVE stays'},
+    'webhookDeliveries':{ops:['insert'],  note:'Renewal event delivery record'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 13 — PAYMENT METHOD MANAGEMENT
+// ─────────────────────────────────────────────
+{
+  id:'f13', num:'13',
+  title:'Payment Method Manage করো (Stripe Portal)',
+  subtitle:'Billing — Payment methods',
+  desc:'User তার credit card add/update/remove করতে চায়। YoCore বা YoPM কখনো card data দেখে না বা store করে না — সব Stripe-এর hosted Customer Portal-এ হয়। YoCore শুধু Portal URL generate করে দেয়।',
+  actors:['browser','product-app','yocore-api','stripe','mongodb'],
+  steps:[
+    {
+      actor:'browser',
+      action:'YoPM "Billing Settings" → "Manage Payment Method" click করো',
+      detail:'User Stripe Portal-এ যেতে চায়। YoPM একটা temporary portal URL request করে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'YoCore-তে Billing Portal session চাও',
+      detail:'YoPM backend YoCore-কে call করে Stripe Customer Portal URL পেতে।',
+      payload:'POST https://api.yocore.io/v1/billing/portal\nAuthorization: Bearer access_token\n{\n  "user_id": "usr_karim_001",\n  "product_id": "prod_yopm",\n  "return_url": "https://yopm.io/settings/billing"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'User-এর stripeCustomerId নাও → Stripe Portal session তৈরি করো',
+      detail:'subscriptions থেকে stripeCustomerId নিয়ে Stripe API call করো। Portal session 5 মিনিটের জন্য valid।',
+      payload:'// Stripe API call:\nconst session = await stripe.billingPortal.sessions.create({\n  customer: "cus_stripe_xxx",  // from subscriptions doc\n  return_url: "https://yopm.io/settings/billing"\n});\n// session.url = temporary Stripe-hosted URL',
+      db:[
+        {c:'subscriptions', op:'read', f:'stripeCustomerId নিয়ে Stripe portal session তৈরিতে use'}
+      ]
+    },
+    {
+      actor:'product-app',
+      action:'Portal URL browser-এ redirect করো',
+      detail:'YoPM YoCore থেকে URL পেয়ে user-কে redirect করে।',
+      payload:'Response:\n{\n  "portal_url": "https://billing.stripe.com/session/bps_xxx"\n  // 5 minutes expiry\n}\n→ 302 redirect to portal_url',
+      db:[]
+    },
+    {
+      actor:'browser',
+      action:'Stripe-hosted Portal-এ card add/update/remove করো',
+      detail:'User সম্পূর্ণ Stripe-এর নিজস্ব page-এ থাকে। Card number কোথাও log হয় না — YoCore বা YoPM দেখে না।',
+      payload:'// Stripe Portal features:\n// ✅ Add new payment method\n// ✅ Update existing card\n// ✅ Remove payment method\n// ✅ Download past invoices\n// ✅ Cancel subscription (if configured)',
+      db:[]
+    },
+    {
+      actor:'stripe',
+      action:'Card update হলে → payment_method.attached webhook (optional)',
+      detail:'Stripe YoCore-কে notify করতে পারে। YoCore subscribe করলে record রাখতে পারে।',
+      payload:'{\n  "type": "payment_method.attached",\n  "data": { "object": {\n    "id": "pm_xxx",\n    "customer": "cus_stripe_xxx",\n    "card": {\n      "brand": "visa",\n      "last4": "4242",\n      "exp_month": 12,\n      "exp_year": 2027\n    }\n  }}\n}',
+      db:[
+        {c:'webhookDeliveries', op:'insert', f:'event: payment_method.attached, status: SUCCESS'}
+      ]
+    },
+    {
+      actor:'browser',
+      action:'Done → return_url-এ redirect (yopm.io/settings/billing)',
+      detail:'User Stripe Portal থেকে back আসে। YoPM billing settings page দেখায়।',
+      payload:null, db:[]
+    }
+  ],
+  dbHit:{
+    'subscriptions':    {ops:['read'],   note:'stripeCustomerId retrieve করতে'},
+    'webhookDeliveries':{ops:['insert'], note:'Card attach event (optional tracking)'}
+  }
+},
+
+// ─────────────────────────────────────────────
+// FLOW 14 — PERMISSION CHECK
+// ─────────────────────────────────────────────
+{
+  id:'f14', num:'14',
+  title:'Permission Check — Feature Access Control',
+  subtitle:'Authorization',
+  desc:'User YoPM-এ একটা Pro-only feature (যেমন: data export) access করার চেষ্টা করছে। দুইটা path: JWT থেকে local fast-check (network ছাড়া) এবং YoCore-এর authoritative check (Redis cache → MongoDB)। Permission কীভাবে role এবং plan দিয়ে enforce হয় সেটা দেখাচ্ছি।',
+  actors:['browser','product-app','yocore-api','mongodb','redis'],
+  steps:[
+    {
+      actor:'browser',
+      action:'"Export Data" button click করো (Pro feature)',
+      detail:'User data export করতে চায়। YoPM এই action-এর permission check করবে।',
+      payload:null, db:[]
+    },
+    {
+      actor:'product-app',
+      action:'Fast path: JWT decode করো, role + plan check করো (local)',
+      detail:'JWT-তেই role এবং plan আছে — YoCore call না করেই check করা যায়। বেশিরভাগ case এখানেই resolve হয়।',
+      payload:'// JWT payload (already in memory):\n{\n  "sub": "usr_karim_001",\n  "role": "OWNER",\n  "plan": "free",       // ← free plan!\n  "workspace_id": "ws_abc",\n  "exp": ...\n}\n\n// YoPM local check:\nif (jwt.plan !== "pro") {\n  → show "Upgrade to Pro" modal\n  → NO YoCore API call needed\n}',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'Authoritative check দরকার হলে: POST /v1/permissions/check',
+      detail:'Role change হয়েছে কিনা, বা সন্দেহজনক request হলে YoCore-কে call করো। JWT 15 মিনিটের — সেই সময়ের মধ্যে role change হলে JWT এখনো old role দেখাবে।',
+      payload:'POST https://api.yocore.io/v1/permissions/check\nAuthorization: Bearer access_token\n{\n  "user_id": "usr_karim_001",\n  "workspace_id": "ws_abc",\n  "product_id": "prod_yopm",\n  "action": "data:export"\n}',
+      db:[]
+    },
+    {
+      actor:'redis',
+      action:'Permission cache check (60s TTL)',
+      detail:'Key: perm:{userId}:{workspaceId}:{action} — cache hit হলে MongoDB call ছাড়াই response।',
+      payload:'// Redis key:\n"perm:usr_karim_001:ws_abc:data:export"\n\n// Cache HIT:\n{ allowed: false, reason: "plan_required", plan_required: "pro" }\n// → return immediately, no MongoDB read\n\n// Cache MISS:\n// → query MongoDB roles collection',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Cache miss: MongoDB থেকে role + permissions load করো',
+      detail:'workspaceMembers থেকে user-এর role_id নাও, roles থেকে permissions array check করো।',
+      payload:null,
+      db:[
+        {c:'workspaceMembers', op:'read', f:'{ workspaceId: ws_abc, userId: usr_karim_001 } → role_id: role_owner_id'},
+        {c:'roles',            op:'read', f:'{ _id: role_owner_id } → permissions: ["data:read", "data:write"]\n→ "data:export" NOT in permissions → denied by role'},
+        {c:'subscriptions',    op:'read', f:'{ workspaceId: ws_abc } → plan: "free"\n→ "data:export" requires plan: "pro" → denied by plan'}
+      ]
+    },
+    {
+      actor:'redis',
+      action:'Result Redis-এ cache করো (60s)',
+      detail:'পরের request-এ MongoDB query লাগবে না।',
+      payload:'// Redis SET:\n"perm:usr_karim_001:ws_abc:data:export" = \'{ "allowed": false, "reason": "plan_required", "plan_required": "pro" }\'\nEX 60',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Permission result return করো',
+      detail:'Product এই response দেখে user-কে সঠিক message দেখায়।',
+      payload:'Response 200:\n{\n  "allowed": false,\n  "reason": "plan_required",\n  "plan_required": "pro",\n  "user_role": "OWNER",\n  "user_plan": "free"\n}\n\n// Product side:\n// → show "Upgrade to Pro to export data" modal\n// → with Checkout link for Pro plan',
+      db:[]
+    },
+    {
+      actor:'product-app',
+      action:'✅ Allowed case: Permission pass হলে feature execute করো',
+      detail:'User যদি Pro plan-এ থাকতো, allowed: true → YoPM export শুরু করে।',
+      payload:'// allowed: true case:\n{\n  "allowed": true,\n  "user_role": "OWNER",\n  "user_plan": "pro",\n  "limits": {\n    "max_export_rows": -1  // unlimited\n  }\n}\n// → YoPM export logic চালাও',
+      db:[
+        {c:'auditLogs', op:'insert', f:'userId, action: "data:export", workspaceId, productId, result: allowed, ip, timestamp'}
+      ]
+    }
+  ],
+  dbHit:{
+    'workspaceMembers':{ops:['read'],   note:'Cache miss-এ: user-এর role_id নিতে'},
+    'roles':           {ops:['read'],   note:'Cache miss-এ: permissions array check'},
+    'subscriptions':   {ops:['read'],   note:'Plan-gated permission check'},
+    'auditLogs':       {ops:['insert'], note:'Sensitive action-এর audit trail'}
+  }
+}
+
+,
+
+// ─────────────────────────────────────────────
+// FLOW 15 — ADMIN INVITES USER TO WORKSPACE
+// ─────────────────────────────────────────────
+{
+  id:'f15', num:'15',
+  title:'Admin Workspace-এ New User Invite করে',
+  subtitle:'Member management — Invitation flow',
+  desc:'Product-এর workspace Admin বা Owner অন্য কাউকে email দিয়ে invite করছে। YoCore দুটো path handle করে: (A) invitee-র আগে থেকেই YoCore account থাকলে সরাসরি workspace-এ যোগ হয়, (B) নতুন user হলে invitation link থেকে account তৈরি করে — email auto-verified (invitation implies trust, Decision 4)। Seat limit আগেই check হয়।',
+  actors:['product-app','yocore-api','mongodb','redis','email','browser'],
+  steps:[
+    {
+      actor:'product-app',
+      action:'Admin: Workspace Settings → Members → "Invite Member"',
+      detail:'Admin invitee-র email address এবং role (ADMIN / MEMBER / VIEWER) দিয়ে submit করে।',
+      payload:'POST /v1/workspaces/{workspace_id}/invitations\nHeaders: X-API-Key: yc_live_xxx\nAuthorization: Bearer admin_access_token\n{\n  "email": "newuser@example.com",\n  "role": "MEMBER"\n}',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'Guard check: admin permission আছে কিনা verify করো',
+      detail:'JWT থেকে caller user_id বের করো। workspaceMembers-এ check: caller-এর role OWNER বা ADMIN কিনা। না হলে 403।',
+      payload:'// workspaceMembers query:\n{ workspaceId, userId: callerUserId, role: { $in: ["OWNER","ADMIN"] } }\n// Not found → 403 Forbidden: "Only OWNER or ADMIN can invite members"',
+      db:[
+        {c:'workspaceMembers', op:'read', f:'callerUserId + workspaceId → role check (OWNER/ADMIN required)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Seat limit check: plan-এ কত member allow আছে?',
+      detail:'Workspace-এর active subscription দেখো। billingPlans-এ `limits.maxMembers` আছে। Current member count-এর সাথে তুলনা করো। -1 মানে unlimited।',
+      payload:'// Current member count:\nconst count = await WorkspaceMembers.countDocuments({ workspaceId, status: "ACTIVE" });\n// Plan limit:\nconst plan = await BillingPlans.findById(subscription.planId);\nif (plan.limits.maxMembers !== -1 && count >= plan.limits.maxMembers) {\n  throw 402: "Seat limit reached. Upgrade plan to invite more members."\n}',
+      db:[
+        {c:'workspaceMembers', op:'read', f:'countDocuments({ workspaceId, status: ACTIVE }) → seat count'},
+        {c:'subscriptions',    op:'read', f:'workspaceId → planId'},
+        {c:'billingPlans',     op:'read', f:'planId → limits.maxMembers'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Duplicate check: already member কিনা দেখো',
+      detail:'Invitee-র email দিয়ে users collection-এ look up করো। User থাকলে workspaceMembers-এ already আছে কিনা check করো। Already member হলে error।',
+      payload:'const existingUser = await Users.findOne({ email: "newuser@example.com" });\nif (existingUser) {\n  const alreadyMember = await WorkspaceMembers.findOne({\n    workspaceId,\n    userId: existingUser._id,\n    status: "ACTIVE"\n  });\n  if (alreadyMember) throw 409: "User is already a member of this workspace";\n}',
+      db:[
+        {c:'users',            op:'read', f:'email → existing YoCore user lookup'},
+        {c:'workspaceMembers', op:'read', f:'userId + workspaceId → duplicate member check'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'Invitation record তৈরি করো (signed token, 72h expiry)',
+      detail:'Crypto-random token তৈরি করো। Token-এর hash DB-তে store করো (plain নয়)। Expiry 72 hours। Pending invitation থাকলে replace করো (resend case)।',
+      payload:'const rawToken = crypto.randomBytes(32).toString("hex");\nconst tokenHash = sha256(rawToken); // ← DB-তে hash store\n\nawait Invitations.findOneAndUpdate(\n  { workspaceId, email: "newuser@example.com", status: "PENDING" },\n  {\n    tokenHash,\n    role: "MEMBER",\n    invitedBy: adminUserId,\n    expiresAt: now + 72h,\n    status: "PENDING",\n    isExistingUser: !!existingUser // ← path decision\n  },\n  { upsert: true, new: true }\n);',
+      db:[
+        {c:'invitations', op:'insert', f:'tokenHash (sha256), workspaceId, email, role, invitedBy, expiresAt (+72h), status: PENDING, isExistingUser'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'Invitation email পাঠাও — দুটো variant',
+      detail:'isExistingUser true হলে: "Accept Invitation" button → product workspace-এ সরাসরি নিয়ে যাবে। isExistingUser false হলে: "Accept & Create Account" → signup page, email pre-filled + locked।',
+      payload:'// Existing user email:\n"Hi [name], [Admin] has invited you to [Workspace] on [Product].\n[Accept Invitation] → https://yopm.io/invitations/accept?token=rawToken"\n\n// New user email:\n"You\'ve been invited to [Workspace]. Create your free account to get started.\n[Accept & Create Account] → https://yopm.io/invitations/signup?token=rawToken"',
+      db:[]
+    },
+    {
+      actor:'browser',
+      action:'─── PATH A: Existing YoCore User ─── Invitation link click করো',
+      detail:'User login থাকলে সরাসরি token validate হয়। Login না থাকলে login করার পরে redirect হয়ে token validate হয়।',
+      payload:'GET https://yopm.io/invitations/accept?token=rawToken\n→ YoPM: POST /v1/invitations/accept { token: rawToken }\n→ YoCore validates: sha256(rawToken) matches DB tokenHash\n→ token expired? → 410 Gone: "Invitation expired. Ask admin to resend."',
+      db:[]
+    },
+    {
+      actor:'yocore-api',
+      action:'[PATH A] Token validate করো → workspaceMembers-এ add করো',
+      detail:'Token hash match + not expired। Invitation status ACCEPTED করো। workspaceMembers-এ insert করো। productUsers-এ ওই product-এর জন্য link নেই থাকলে create করো।',
+      payload:'// Add to workspace:\nawait WorkspaceMembers.create({\n  workspaceId,\n  userId: existingUser._id,\n  roleId: role_member_objectid,\n  addedBy: invitingAdminId,\n  joinedAt: now\n});\n// Ensure productUsers link exists:\nawait ProductUsers.findOneAndUpdate(\n  { userId: existingUser._id, productId },\n  { $setOnInsert: { status: "ACTIVE", joinedAt: now } },\n  { upsert: true }\n);\n// Mark invitation done:\nawait Invitations.updateOne({ _id }, { status: "ACCEPTED", acceptedAt: now });',
+      db:[
+        {c:'invitations',      op:'update', f:'status: ACCEPTED, acceptedAt: now'},
+        {c:'workspaceMembers', op:'insert', f:'userId, workspaceId, roleId, addedBy, joinedAt'},
+        {c:'productUsers',     op:'insert', f:'userId + productId link (upsert — already may exist)'},
+        {c:'auditLogs',        op:'insert', f:'action: "workspace.member.joined", method: "invitation"'}
+      ]
+    },
+    {
+      actor:'browser',
+      action:'─── PATH B: New User ─── Signup page-এ যাও (email locked)',
+      detail:'Token থেকে email pre-fill হয়। User শুধু name + password দেয়। Email field locked — change করা যাবে না।',
+      payload:'GET https://yopm.io/invitations/signup?token=rawToken\n→ YoCore: GET /v1/invitations/preview?token=rawToken\n← { email: "newuser@example.com", workspaceName: "Karim\'s Team", productName: "YoPM", role: "MEMBER" }\n// UI shows locked email, asks for: Full Name, Password',
+      db:[
+        {c:'invitations', op:'read', f:'tokenHash match → preview data (email, workspace, role)'}
+      ]
+    },
+    {
+      actor:'yocore-api',
+      action:'[PATH B] Account তৈরি করো + email auto-verify + workspace-এ add করো',
+      detail:'Invitation = implicit email trust (Decision 4)। আলাদা email verification লাগবে না। একটাই transaction-এ: users insert → productUsers insert → workspaceMembers insert → invitation ACCEPTED। Argon2id দিয়ে password hash।',
+      payload:'// Single atomic operation:\nconst newUser = await Users.create({\n  name, email, passwordHash: argon2id(password),\n  status: "ACTIVE",              // ← email already verified via invitation\n  emailVerified: true,           // ← invitation = implicit trust\n  emailVerifiedAt: now,\n  emailVerifiedMethod: "invitation",\n  onboarded: false               // ← wizard still needed\n});\n\nawait ProductUsers.create({ userId: newUser._id, productId, status: "ACTIVE" });\nawait WorkspaceMembers.create({ userId: newUser._id, workspaceId, roleId, addedBy });\nawait Invitations.updateOne({ _id }, { status: "ACCEPTED", acceptedAt: now });\n// Auto-login: issue access token + refresh token\nreturn { access_token, redirect: "/onboarding" };',
+      db:[
+        {c:'users',            op:'insert', f:'name, email, passwordHash (argon2id), status: ACTIVE, emailVerified: true, emailVerifiedMethod: "invitation", onboarded: false'},
+        {c:'productUsers',     op:'insert', f:'userId, productId, status: ACTIVE'},
+        {c:'workspaceMembers', op:'insert', f:'userId, workspaceId, roleId, addedBy'},
+        {c:'invitations',      op:'update', f:'status: ACCEPTED, acceptedAt'},
+        {c:'auditLogs',        op:'insert', f:'action: "user.created.via.invitation", workspaceId, invitedBy'}
+      ]
+    },
+    {
+      actor:'email',
+      action:'Inviting admin-কে notification পাঠাও',
+      detail:'Admin-কে জানাও যে invite accept হয়েছে। Optional — product config-এ disable করা যাবে।',
+      payload:'"[newuser@example.com] has accepted your invitation and joined [Workspace Name]."',
+      db:[]
+    }
+  ],
+  dbHit:{
+    'invitations':      {ops:['insert','update'], note:'Pending invite তৈরি (token hash), accept-এ ACCEPTED mark'},
+    'users':            {ops:['read','insert'],   note:'Email lookup (existing user?), নতুন user creation (PATH B)'},
+    'workspaceMembers': {ops:['read','insert'],   note:'Seat count, duplicate check, নতুন member add'},
+    'productUsers':     {ops:['insert'],          note:'Product-level user link (upsert)'},
+    'subscriptions':    {ops:['read'],            note:'Seat limit plan check'},
+    'billingPlans':     {ops:['read'],            note:'limits.maxMembers value'},
+    'auditLogs':        {ops:['insert'],          note:'Invitation accept audit trail'}
+  }
+}
+
+]; // end flows
+
+// ═══════════════════════════════════════════════
+//  RENDER ENGINE
+// ═══════════════════════════════════════════════
+const OP_CLASS = {insert:'op-insert',update:'op-update',delete:'op-delete',read:'op-read'};
+const OP_LABEL = {insert:'INSERT',update:'UPDATE',delete:'DELETE',read:'READ'};
+
+function renderLegend(){
+  document.getElementById('legend-rows').innerHTML=Object.entries(ACTORS).map(([,a])=>`
+    <div class="legend-row">
+      <div class="legend-dot" style="background:${a.color}"></div>
+      <div class="legend-label">${a.label}</div>
+    </div>`).join('');
+}
+
+function renderSidebar(){
+  document.getElementById('sidebar-nav').innerHTML=flows.map((f,i)=>`
+    <div class="flow-link${i===0?' active':''}" data-id="${f.id}" onclick="showFlow('${f.id}',this)">
+      <div class="flow-num-badge">${f.num}</div>
+      <div class="fl-text">
+        <div class="fl-title">${f.title}</div>
+        <div class="fl-sub">${f.subtitle}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderFlows(){
+  document.getElementById('flow-container').innerHTML=flows.map((f,fi)=>{
+    const isDanger = f.id==='f08';
+    return `
+    <div class="flow-page${fi===0?' active':''}" id="${f.id}">
+      <div class="flow-label">Flow ${f.num} of ${flows.length} · ${f.subtitle}</div>
+      <div class="flow-title">${f.title}</div>
+      <div class="flow-desc">${f.desc}</div>
+
+      <div class="actors-row">
+        ${f.actors.map(a=>`
+          <div class="actor-pill" style="background:${ACTORS[a].bg};border-color:${ACTORS[a].border};color:${ACTORS[a].color}">
+            <div style="width:8px;height:8px;border-radius:50%;background:${ACTORS[a].color};flex-shrink:0"></div>
+            ${ACTORS[a].label}
+          </div>`).join('')}
+      </div>
+
+      <div class="steps-wrap">
+        ${f.steps.map((s,si)=>{
+          const color=ACTOR_COLOR(s.actor);
+          const isLast=si===f.steps.length-1;
+          const isWarning=s.action.includes('⏰');
+          const isDangerStep=s.action.includes('🔥');
+          let extraClass='';
+          if(isDangerStep) extraClass='danger-step';
+          else if(isWarning) extraClass='warning-step';
+          return `
+          <div class="step${extraClass?' '+extraClass:''}">
+            <div class="step-gutter">
+              <div class="step-circle" style="border-color:${color};color:${color}">${si+1}</div>
+              ${!isLast?`<div class="step-line"></div>`:''}
+            </div>
+            <div class="step-body"${isLast?' style="padding-bottom:0"':''}>
+              <div class="step-card" style="border-left:3px solid ${color}22">
+                <div class="step-actor" style="color:${color}">${ACTORS[s.actor]?.label||s.actor}</div>
+                <div class="step-action">${s.action}</div>
+                ${s.detail?`<div class="step-detail">${s.detail}</div>`:''}
+                ${s.payload?`<div class="step-payload">${escHtml(s.payload)}</div>`:''}
+                ${s.db&&s.db.length>0?`
+                  <div class="db-impact">
+                    <div class="db-impact-label">📦 Database Impact</div>
+                    ${s.db.map(d=>`
+                      <div class="db-row">
+                        <span class="db-coll">${d.c}</span>
+                        <span class="op ${OP_CLASS[d.op]||'op-read'}">${OP_LABEL[d.op]||d.op.toUpperCase()}</span>
+                        <span class="db-fields">${escHtml(d.f)}</span>
+                      </div>`).join('')}
+                  </div>`:''
+                }
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="db-summary">
+        <div class="db-summary-title">📋 এই Flow-এ কোন Collections Touched হয়</div>
+        <div class="db-grid">
+          ${ALL_COLLECTIONS.map(coll=>{
+            const h=f.dbHit&&f.dbHit[coll];
+            return `
+            <div class="db-card${h?' hit':''}">
+              <div class="db-card-name">
+                <div class="status-dot"></div>${coll}
+              </div>
+              ${h?`
+                <div class="db-card-ops">${h.ops.map(op=>`<span class="op ${OP_CLASS[op]}">${OP_LABEL[op]}</span>`).join('')}</div>
+                <div class="db-card-note">${h.note}</div>
+              `:`<div class="db-card-note" style="color:#21262d">— unchanged —</div>`}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(str){
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showFlow(id, el){
+  document.querySelectorAll('.flow-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.flow-link').forEach(l=>l.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  (el||document.querySelector(`.flow-link[data-id="${id}"]`)).classList.add('active');
+  document.getElementById('main').scrollTop=0;
+}
+
+// keyboard navigation
+document.addEventListener('keydown',e=>{
+  const current=flows.findIndex(f=>document.getElementById(f.id).classList.contains('active'));
+  if(e.key==='ArrowRight'||e.key===']') showFlow(flows[Math.min(current+1,flows.length-1)].id);
+  if(e.key==='ArrowLeft' ||e.key==='[') showFlow(flows[Math.max(current-1,0)].id);
+});
+
+// init
+renderLegend();
+renderSidebar();
+renderFlows();
+</script>
+</body>
+</html>

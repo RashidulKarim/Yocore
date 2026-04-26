@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YoCore — Complete System Design</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;font-size:14px;line-height:1.6}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:260px;min-width:260px;background:#161b22;border-right:1px solid #21262d;display:flex;flex-direction:column;height:100vh;overflow-y:auto;flex-shrink:0}
+.main{flex:1;height:100vh;overflow-y:auto;background:#0d1117}
+
+/* ── SIDEBAR ── */
+.brand{padding:20px;border-bottom:1px solid #21262d}
+.brand-logo{font-size:20px;font-weight:800;background:linear-gradient(135deg,#58a6ff,#bc8cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.brand-sub{font-size:11px;color:#484f58;margin-top:3px}
+.brand-meta{font-size:10px;color:#30363d;margin-top:6px;line-height:1.7}
+.brand-meta span{color:#484f58}
+
+.nav-section{padding:12px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#484f58}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:all .15s;user-select:none;font-size:13px;color:#8b949e}
+.nav-item:hover{background:rgba(255,255,255,.03);color:#c9d1d9}
+.nav-item.active{border-left-color:#58a6ff;background:rgba(88,166,255,.06);color:#58a6ff}
+.nav-num{width:22px;height:22px;border-radius:6px;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#484f58;flex-shrink:0}
+.nav-item.active .nav-num{background:#1c3466;color:#58a6ff}
+
+.sidebar-legend{padding:14px 16px;border-top:1px solid #21262d;margin-top:auto}
+.legend-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;margin-bottom:8px}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:#8b949e}
+.ldot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── MAIN CONTENT ── */
+.section{display:none;padding:40px 48px 80px;max-width:1000px}
+.section.active{display:block}
+
+.section-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#484f58;margin-bottom:8px}
+.section-title{font-size:28px;font-weight:800;color:#e6edf3;letter-spacing:-0.5px;margin-bottom:12px;line-height:1.2}
+.section-desc{font-size:13.5px;color:#8b949e;line-height:1.75;max-width:700px;padding:14px 18px;background:#161b22;border-left:3px solid #21262d;border-radius:0 10px 10px 0;margin-bottom:36px}
+
+/* ── READING GUIDE ── */
+.guide-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:32px}
+.guide-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid}
+
+/* ── COLLECTION CARDS ── */
+.coll-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:36px}
+.coll-card{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.coll-card:hover{border-color:#30363d;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.coll-card.open{border-color:#58a6ff;background:#0d1f38}
+.coll-name{font-size:14px;font-weight:700;font-family:'SF Mono','Fira Code',monospace;color:#79c0ff;margin-bottom:6px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.coll-purpose{font-size:12px;color:#8b949e;line-height:1.5}
+.coll-chevron{font-size:10px;color:#484f58;transition:transform .2s}
+.coll-card.open .coll-chevron{transform:rotate(180deg)}
+.coll-body{display:none;margin-top:14px;padding-top:14px;border-top:1px solid #21262d}
+.coll-card.open .coll-body{display:block}
+
+.code-block{background:#010409;border:1px solid #21262d;border-radius:8px;padding:14px 16px;font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:12px;color:#e6edf3;overflow-x:auto;white-space:pre;line-height:1.65;margin-bottom:12px}
+.code-block .kw{color:#ff7b72}
+.code-block .str{color:#a5d6ff}
+.code-block .cmt{color:#484f58;font-style:italic}
+.code-block .num{color:#79c0ff}
+.code-block .key{color:#7ee787}
+
+.idx-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;margin-bottom:8px}
+.idx-block{background:#010409;border:1px solid #21262d;border-radius:8px;padding:12px 14px;font-family:monospace;font-size:11.5px;color:#8b949e;overflow-x:auto;white-space:pre;line-height:1.6}
+
+.security-note{background:#0a1628;border:1px solid #1c3466;border-radius:8px;padding:10px 14px;font-size:12px;color:#8b949e;margin-top:10px}
+.security-note strong{color:#58a6ff}
+
+/* ── FLOW CARDS ── */
+.flow-card{background:#161b22;border:1px solid #21262d;border-radius:14px;margin-bottom:16px;overflow:hidden;transition:border-color .2s}
+.flow-card:hover{border-color:#30363d}
+.flow-card.open{border-color:#58a6ff}
+.flow-card.flow-card-new{border-left:3px solid #3fb950}
+.flow-header{display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;user-select:none}
+.flow-badge{min-width:38px;height:38px;border-radius:10px;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#484f58;flex-shrink:0}
+.flow-card.open .flow-badge{background:#1c3466;color:#58a6ff}
+.flow-info{flex:1}
+.flow-name{font-size:15px;font-weight:700;color:#c9d1d9}
+.flow-card.open .flow-name{color:#58a6ff}
+.flow-sub{font-size:11px;color:#484f58;margin-top:2px}
+.flow-chevron{font-size:12px;color:#484f58;transition:transform .2s}
+.flow-card.open .flow-chevron{transform:rotate(180deg)}
+.flow-content{display:none;padding:0 20px 20px}
+.flow-card.open .flow-content{display:block}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:#161b22;padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#484f58;border-bottom:1px solid #21262d;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #0d1117;vertical-align:top;line-height:1.55}
+tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'SF Mono','Fira Code',monospace;font-size:11.5px;color:#79c0ff}
+.ep{font-family:'SF Mono','Fira Code',monospace;font-size:11px;color:#a5d6ff}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.badge-mvp{background:#0e2a1d;color:#3fb950;border:1px solid #238636}
+.badge-post{background:#1c1407;color:#f0883e;border:1px solid #9e6a03}
+.badge-new{display:inline-flex;align-items:center;padding:1px 7px;border-radius:5px;font-size:9px;font-weight:800;letter-spacing:.6px;background:#0e2a1d;color:#3fb950;border:1px solid #238636;margin-left:8px;vertical-align:middle}
+.badge-red{background:#270b0b;color:#f85149;border:1px solid #6e1a1a}
+.badge-yellow{background:#271c06;color:#f0883e;border:1px solid #9e6a03}
+.badge-green{background:#0e2a1d;color:#3fb950;border:1px solid #238636}
+.badge-blue{background:#0c1c32;color:#58a6ff;border:1px solid #1c3466}
+.badge-purple{background:#1c0e2a;color:#bc8cff;border:1px solid #6e40c9}
+.badge-admin{background:#1c0e2a;color:#c084fc;border:1px solid #6e40c9}
+.badge-user{background:#0c1c32;color:#60a5fa;border:1px solid #1c3466}
+.badge-product{background:#0a1f0d;color:#34d399;border:1px solid #238636}
+.badge-gateway{background:#271c06;color:#f0883e;border:1px solid #9e6a03}
+.badge-public{background:#21262d;color:#8b949e;border:1px solid #30363d}
+
+/* ── MATRIX TABLE ── */
+.matrix-r{color:#58a6ff;font-weight:700}
+.matrix-w{color:#3fb950;font-weight:700}
+.matrix-u{color:#f0883e;font-weight:700}
+.matrix-d{color:#f85149;font-weight:700}
+.matrix-rw{color:#bc8cff;font-weight:700}
+.matrix-rwd{color:#ffa657;font-weight:700}
+.matrix-rud{color:#ff7b72;font-weight:700}
+.matrix-none{color:#21262d}
+.coll-label{font-family:'SF Mono','Fira Code',monospace;font-size:11px;color:#79c0ff}
+
+/* ── ERD ── */
+.mermaid-wrap{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:24px;overflow:auto;margin-bottom:20px}
+.mermaid-wrap svg{max-width:100%}
+
+/* ── ARCH CARDS ── */
+.arch-section-title{font-size:16px;font-weight:700;color:#e6edf3;margin:24px 0 14px;display:flex;align-items:center;gap:8px}
+.well-item{background:#0a1f0d;border:1px solid #1a3323;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.well-title{font-size:13px;font-weight:700;color:#7ee787;margin-bottom:5px}
+.well-body{font-size:12.5px;color:#8b949e;line-height:1.65}
+.gap-card{background:#161b22;border:1px solid #21262d;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.gap-header{display:flex;align-items:center;gap:12px;padding:13px 16px}
+.gap-sev{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.gap-title{font-size:13px;font-weight:700;color:#c9d1d9;flex:1}
+.gap-body{padding:0 16px 14px;font-size:12.5px;color:#8b949e;line-height:1.65}
+.gap-body code{background:#21262d;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px;color:#e6edf3}
+
+/* ── GATEWAY MATRIX ── */
+.gw-table{margin-bottom:24px}
+
+/* ── REDIS TABLE ── */
+.redis-key{font-family:'SF Mono','Fira Code',monospace;font-size:11px;color:#f0883e}
+
+/* ── SCROLL TOP ── */
+.totop{position:fixed;bottom:24px;right:24px;width:38px;height:38px;border-radius:50%;background:#21262d;border:1px solid #30363d;color:#8b949e;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:100}
+.totop:hover{background:#30363d;color:#e6edf3}
+
+/* ── SECTION DIVIDER ── */
+.divider{height:1px;background:#21262d;margin:28px 0}
+.sub-title{font-size:16px;font-weight:700;color:#e6edf3;margin:24px 0 14px;display:flex;align-items:center;gap:8px}
+.sub-title .icon{font-size:14px}
+.path-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#161b22;border:1px solid #30363d;color:#c9d1d9;margin:4px 4px 4px 0}
+.path-tag.a{border-color:#3fb950;color:#3fb950;background:#0a1f0d}
+.path-tag.b{border-color:#58a6ff;color:#58a6ff;background:#0c1c32}
+
+.note-box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;font-size:12.5px;color:#8b949e;margin:12px 0;line-height:1.65}
+.note-box.warn{border-color:#9e6a03;background:#1c1407}
+.note-box.danger{border-color:#6e1a1a;background:#160a0a}
+.note-box strong{color:#e6edf3}
+
+.op-r{display:inline-block;background:#0c1c32;color:#58a6ff;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin:1px}
+.op-w{display:inline-block;background:#0e2a1d;color:#3fb950;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin:1px}
+.op-u{display:inline-block;background:#271c06;color:#f0883e;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin:1px}
+.op-d{display:inline-block;background:#270b0b;color:#f85149;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin:1px}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo">YoCore</div>
+    <div class="brand-sub">Complete System Design</div>
+    <div class="brand-meta">
+      <span>Version 1.0</span> — MVP Reference<br>
+      <span>Date:</span> April 22, 2026
+    </div>
+  </div>
+
+  <div class="nav-section">Schema</div>
+  <div class="nav-item active" onclick="show('s1',this)"><div class="nav-num">1</div>MongoDB Collections</div>
+
+  <div class="nav-section">Flows</div>
+  <div class="nav-item" onclick="show('s2',this)"><div class="nav-num">2</div>Flow-by-Flow DB Impact</div>
+
+  <div class="nav-section">Diagrams</div>
+  <div class="nav-item" onclick="show('s3',this)"><div class="nav-num">3</div>Entity Relationship Diagram</div>
+  <div class="nav-item" onclick="show('s4',this)"><div class="nav-num">4</div>Collection × Flow Matrix</div>
+
+  <div class="nav-section">Review</div>
+  <div class="nav-item" onclick="show('s5',this)"><div class="nav-num">5</div>Architecture Review</div>
+
+  <div class="nav-section">API</div>
+  <div class="nav-item" onclick="show('s6',this)"><div class="nav-num">6</div>API Endpoint Summary</div>
+  <div class="nav-item" onclick="show('s7',this)"><div class="nav-num">✦</div>Decisions vs PRD</div>
+
+  <div class="sidebar-legend">
+    <div class="legend-title">Legend</div>
+    <div class="legend-row"><div class="ldot" style="background:#3fb950"></div><span class="badge badge-mvp" style="font-size:10px">MVP</span> Ship in v1</div>
+    <div class="legend-row"><div class="ldot" style="background:#f0883e"></div><span class="badge badge-post" style="font-size:10px">POST-MVP</span> Schema-ready</div>
+    <div class="legend-row"><div class="ldot" style="background:#f85149"></div>🔴 Critical gap</div>
+    <div class="legend-row"><div class="ldot" style="background:#f0883e"></div>🟡 Important gap</div>
+    <div class="legend-row"><div class="ldot" style="background:#3fb950"></div>🟢 Nice to have</div>
+  </div>
+</aside>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<main class="main" id="mainScroll">
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 1 — MONGODB SCHEMA -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section active" id="s1">
+  <div class="section-eyebrow">Part 1 of 6</div>
+  <div class="section-title">MongoDB Collections</div>
+  <div class="section-desc">
+    15 collections covering the full YoCore domain. Every collection includes field definitions, indexes, example doc, and isolation rules.
+    Encrypted fields (suffix <code style="background:#21262d;padding:1px 6px;border-radius:4px;font-size:12px">Encrypted</code>) use AES-256-GCM. Passwords use Argon2id. Tokens stored as SHA-256 hashes only.
+  </div>
+
+  <div class="guide-grid">
+    <div class="badge badge-mvp" style="padding:6px 14px;font-size:12px">✅ Stripe — MVP</div>
+    <div class="badge badge-mvp" style="padding:6px 14px;font-size:12px">✅ SSLCommerz — MVP</div>
+    <div class="badge badge-post" style="padding:6px 14px;font-size:12px">🔲 PayPal — Schema ready</div>
+    <div class="badge badge-post" style="padding:6px 14px;font-size:12px">🔲 Paddle — Schema ready</div>
+  </div>
+
+  <!-- Collection Cards -->
+  <div class="coll-grid" id="collGrid"></div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 2 — FLOWS -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s2">
+  <div class="section-eyebrow">Part 2 of 6</div>
+  <div class="section-title">Flow-by-Flow DB Impact</div>
+  <div class="section-desc">
+    Flows A–N (core) + O–T (auth &amp; billing, <span class="badge-new" style="display:inline-flex">NEW</span>). Each shows: API endpoint called, DB fields touched per step (R/W/U/D), Redis operations, external service calls, and error paths.
+  </div>
+  <div id="flowsContainer"></div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 3 — ERD -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s3">
+  <div class="section-eyebrow">Part 3 of 6</div>
+  <div class="section-title">Entity Relationship Diagram</div>
+  <div class="section-desc">
+    Logical relationships between all 15 collections. MongoDB doesn't enforce foreign keys — these are logical relations maintained by application code.
+  </div>
+  <div class="mermaid-wrap">
+    <div class="mermaid">
+erDiagram
+    users ||--o{ productUsers : "joins"
+    users ||--o{ sessions : "has"
+    users ||--o{ authTokens : "has"
+    users ||--o{ workspaceMembers : "is member of"
+    products ||--o{ productUsers : "has users"
+    products ||--o{ workspaces : "scopes"
+    products ||--o{ roles : "defines"
+    products ||--o{ billingPlans : "has plans"
+    products ||--o{ paymentGateways : "configures"
+    products ||--o{ subscriptions : "owns"
+    products ||--o{ invitations : "scopes"
+    products ||--o{ webhookDeliveries : "receives"
+    workspaces ||--|{ workspaceMembers : "has"
+    workspaces ||--o{ invitations : "for"
+    workspaces ||--o| subscriptions : "billed via"
+    roles ||--o{ workspaceMembers : "assigned to"
+    billingPlans ||--o{ subscriptions : "instantiated as"
+    paymentGateways ||--o{ subscriptions : "processes"
+    bundles ||--o{ subscriptions : "expands into"
+    sessions }o--|| products : "scoped to"
+    productUsers }o--|| products : "in"
+    auditLogs }o--o| products : "scoped to"
+    auditLogs }o--o| users : "actor"
+    </div>
+  </div>
+
+  <div class="note-box">
+    <strong>Reading guide:</strong> <code style="background:#21262d;padding:1px 6px;border-radius:4px;font-size:11px">||--o{</code> = one-to-many &nbsp;|&nbsp;
+    <code style="background:#21262d;padding:1px 6px;border-radius:4px;font-size:11px">||--|{</code> = one-to-many (mandatory) &nbsp;|&nbsp;
+    <code style="background:#21262d;padding:1px 6px;border-radius:4px;font-size:11px">||--o|</code> = one-to-zero-or-one
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 4 — MATRIX -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s4">
+  <div class="section-eyebrow">Part 4 of 6</div>
+  <div class="section-title">Collection × Flow Hit Matrix</div>
+  <div class="section-desc">
+    Which DB collections are touched in which flows. Color-coded by operation type.
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+    <span><span class="op-r">R</span> Read</span>
+    <span><span class="op-w">W</span> Write / Insert</span>
+    <span><span class="op-u">U</span> Update</span>
+    <span><span class="op-d">D</span> Delete</span>
+  </div>
+  <div class="tbl-wrap" id="matrixTable"></div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 5 — ARCH REVIEW -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s5">
+  <div class="section-eyebrow">Part 5 of 6</div>
+  <div class="section-title">Architectural Review</div>
+  <div class="section-desc">
+    Honest assessment of what is well-designed, what are the gaps with severity ratings, and answers to specific architectural questions.
+  </div>
+
+  <div class="arch-section-title"><span class="icon">✅</span> What is well-designed</div>
+
+  <div class="well-item">
+    <div class="well-title">Provider-agnostic gateway model</div>
+    <div class="well-body"><code>paymentGateways.credentialsEncrypted</code> + <code>subscriptions.gatewayRefs</code> — both flexible objects. Adding a 5th gateway is zero schema migration, only a new handler. Highest-leverage decision in the whole design.</div>
+  </div>
+  <div class="well-item">
+    <div class="well-title">Global identity, per-product membership</div>
+    <div class="well-body"><code>users</code> is global. <code>productUsers</code> is the junction. Email verification is global — once verified, any new product signup skips it entirely. Solves Flow I cleanly.</div>
+  </div>
+  <div class="well-item">
+    <div class="well-title">Currency-based gateway routing in config</div>
+    <div class="well-body"><code>products.billingConfig.gatewayRouting</code> maps <code>{ usd: "stripe", bdt: "sslcommerz", default: "stripe" }</code> — business logic as config, not branching code.</div>
+  </div>
+  <div class="well-item">
+    <div class="well-title">Refresh-token families for theft detection</div>
+    <div class="well-body">Each session carries a <code>refreshTokenFamilyId</code>. If a revoked token is presented again, the entire family is revoked and user is forced to re-login. Cheap + effective.</div>
+  </div>
+  <div class="well-item">
+    <div class="well-title">All secrets hashed / encrypted at rest</div>
+    <div class="well-body">Refresh tokens, invitation tokens, password reset tokens, API secrets — all stored as SHA-256 hashes or AES-256-GCM ciphertext. Raw values only appear in transit.</div>
+  </div>
+  <div class="well-item">
+    <div class="well-title">Per-product billing lifecycle config</div>
+    <div class="well-body">Grace period, hold days, warning schedules stored in <code>products.billingConfig</code> — not hardcoded. Each product can have different suspension timelines.</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="arch-section-title"><span class="icon">⚠️</span> Gaps &amp; risks</div>
+
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f85149"></div><div class="gap-title">G1 — Webhook idempotency not enforced at storage layer</div><span class="badge badge-red">🔴 Critical</span></div>
+    <div class="gap-body">Stripe/SSLCommerz can deliver the same event twice. Without a unique constraint you can double-activate or double-charge. <br><strong>Fix:</strong> Add a <code>webhookEventsProcessed</code> collection: <code>{ provider, eventId, productId, processedAt }</code> with <code>{provider, eventId}</code> unique index. Every handler does <code>insertOne</code> first — if it throws E11000, return 200 immediately.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f85149"></div><div class="gap-title">G2 — Subscription gatewayRefs lacks unique constraints</div><span class="badge badge-red">🔴 Critical</span></div>
+    <div class="gap-body"><strong>Fix:</strong> Sparse unique indexes on <code>gatewayRefs.stripeSubscriptionId</code>, <code>gatewayRefs.paypalSubscriptionId</code>, <code>gatewayRefs.paddleSubscriptionId</code>. Already defined in §1.10.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f85149"></div><div class="gap-title">G3 — No protection against creating two SUPER_ADMINs</div><span class="badge badge-red">🔴 Critical</span></div>
+    <div class="gap-body"><strong>Fix:</strong> Partial unique index: <code>db.users.createIndex({ role: 1 }, { unique: true, partialFilterExpression: { role: "SUPER_ADMIN" } })</code></div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f85149"></div><div class="gap-title">G4 — SSO cookie attributes need explicit documentation</div><span class="badge badge-red">🔴 Critical</span></div>
+    <div class="gap-body"><strong>Fix:</strong> <code>Domain=.yo.com; Path=/; HttpOnly; Secure; SameSite=Lax</code>. Cross-apex products use the 60s SSO handoff token in <code>authTokens.type='sso_handoff'</code>.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f0883e"></div><div class="gap-title">I1 — billingScope semantics need schema validation</div><span class="badge badge-yellow">🟡 Important</span></div>
+    <div class="gap-body"><strong>Fix:</strong> Mongo <code>$jsonSchema</code> validator on <code>subscriptions</code> requiring exactly one of <code>subjectUserId</code> / <code>subjectWorkspaceId</code> is non-null, matching the parent product's <code>billingScope</code>.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f0883e"></div><div class="gap-title">I2 — Audit log missing SOC 2 fields</div><span class="badge badge-yellow">🟡 Important</span></div>
+    <div class="gap-body">Missing: <code>correlationId</code> (request ID), <code>actor.sessionId</code>, geographic context, <code>before</code>/<code>after</code> snapshots for state changes. Hash chain (<code>prevHash</code>/<code>hash</code>) is proposed but not yet built.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#f0883e"></div><div class="gap-title">I4 — Permission cache invalidation strategy</div><span class="badge badge-yellow">🟡 Important</span></div>
+    <div class="gap-body"><strong>Fix:</strong> On <code>workspaceMembers</code> write/update/delete and <code>roles</code> update, publish to Redis pub/sub channel <code>cache:invalidate</code> with key <code>perm:&lt;productId&gt;:&lt;userId&gt;:&lt;workspaceId&gt;</code>. All API nodes subscribe.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#3fb950"></div><div class="gap-title">N1 — Rate-limit headers on every response</div><span class="badge badge-green">🟢 Nice to have</span></div>
+    <div class="gap-body"><code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code> on all endpoints.</div>
+  </div>
+  <div class="gap-card">
+    <div class="gap-header"><div class="gap-sev" style="background:#3fb950"></div><div class="gap-title">N2 — Idempotency-Key support on mutating calls</div><span class="badge badge-green">🟢 Nice to have</span></div>
+    <div class="gap-body">Support <code>Idempotency-Key</code> header on signup, checkout, subscription cancel — safe to retry without side effects.</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="arch-section-title"><span class="icon">💳</span> SSLCommerz: Stripe-as-calendar analysis</div>
+  <div class="note-box">
+    <strong>Verdict: Yes for MVP, with eyes open.</strong><br><br>
+    <strong>Pros:</strong> Reuses Stripe's mature recurring engine — period math, invoices, dunning hooks — all for free.<br>
+    <strong>Cons:</strong> Two systems must stay in sync. If SSLCommerz IPN succeeds but <code>stripe.invoices.pay</code> fails → false payment_failed storm.<br>
+    <strong>Mitigation:</strong> Retry <code>stripe.invoices.pay</code> with idempotency key for 24h before alarming.<br><br>
+    <strong>PayPal:</strong> Native recurring — no calendar needed. <code>BILLING.SUBSCRIPTION.RENEWED</code> fires on each cycle.<br>
+    <strong>Paddle:</strong> Native recurring + Merchant of Record — handles VAT, refunds, dunning. Best architecture.
+  </div>
+
+  <div class="arch-section-title"><span class="icon">🔄</span> GatewayAdapter Interface</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Method</th><th>Inputs</th><th>Outputs</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">verifyCredentials()</td><td>gateway config</td><td>ok / error</td><td>Run on <code>paymentGateways</code> insert</td></tr>
+        <tr><td class="mono">createCustomer(user)</td><td>user</td><td>gatewayCustomerId</td><td>Lazy — only on first paid sub</td></tr>
+        <tr><td class="mono">createCheckout(plan, customer, meta)</td><td>plan, customer, metadata</td><td>{ checkoutUrl, sessionId }</td><td>Synchronous</td></tr>
+        <tr><td class="mono">validateWebhook(rawBody, headers)</td><td>raw body, headers</td><td>parsed event or throw</td><td>HMAC / cert / IPN double-check</td></tr>
+        <tr><td class="mono">handleWebhookEvent(event)</td><td>parsed event</td><td>subscription updates</td><td>Maps gateway state → subscriptions.status</td></tr>
+        <tr><td class="mono">cancelSubscription(sub, opts)</td><td>sub, { atPeriodEnd }</td><td>gateway response</td><td></td></tr>
+        <tr><td class="mono">refund(invoiceId, amount)</td><td>refs</td><td>refund object</td><td></td></tr>
+        <tr><td class="mono">getSubscriptionStatus(sub)</td><td>sub</td><td>gateway-side status</td><td>Reconciliation cron</td></tr>
+        <tr><td class="mono">updateQuantity(sub, qty, prorate)</td><td>sub</td><td>invoice result</td><td>Seat changes</td></tr>
+        <tr><td class="mono">migrateOff(sub)</td><td>sub</td><td>cancellation receipt</td><td>Gateway switch procedure</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="arch-section-title"><span class="icon">🔑</span> Redis Key Convention</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Purpose</th><th>Key Pattern</th><th>TTL</th></tr></thead>
+      <tbody>
+        <tr><td>Permission cache</td><td class="redis-key">perm:&lt;productId&gt;:&lt;userId&gt;:&lt;workspaceId&gt;</td><td>60s</td></tr>
+        <tr><td>API-key lookup</td><td class="redis-key">cache:product:apikey:&lt;apiKey&gt;</td><td>60s</td></tr>
+        <tr><td>Plan list</td><td class="redis-key">cache:plans:&lt;productId&gt;</td><td>5m</td></tr>
+        <tr><td>Dashboard overview</td><td class="redis-key">cache:dashboard:overview</td><td>60s</td></tr>
+        <tr><td>Signin rate limit (email)</td><td class="redis-key">ratelimit:signin:email:&lt;email&gt;</td><td>15m</td></tr>
+        <tr><td>Signin rate limit (IP)</td><td class="redis-key">ratelimit:signin:ip:&lt;ip&gt;</td><td>15m</td></tr>
+        <tr><td>Signup rate limit (IP)</td><td class="redis-key">ratelimit:signup:ip:&lt;ip&gt;</td><td>1h</td></tr>
+        <tr><td>JWT blocklist</td><td class="redis-key">jwt:blocklist:&lt;jti&gt;</td><td>up to JWT exp</td></tr>
+        <tr><td>Webhook lock</td><td class="redis-key">lock:webhook:&lt;provider&gt;:&lt;eventId&gt;</td><td>30s</td></tr>
+        <tr><td>SSO handoff</td><td class="redis-key">sso:handoff:&lt;token&gt;</td><td>60s</td></tr>
+        <tr><td>Gateway customer cache</td><td class="redis-key">cache:gateway:customer:&lt;userId&gt;:&lt;provider&gt;</td><td>1h</td></tr>
+        <tr><td>Cache invalidation (pub/sub)</td><td class="redis-key">cache:invalidate</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 6 — API ENDPOINTS -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s6">
+  <div class="section-eyebrow">Part 6 of 6</div>
+  <div class="section-title">API Endpoint Summary</div>
+  <div class="section-desc">
+    All YoCore REST endpoints organized by category. Auth types: 
+    <span class="badge badge-public" style="margin:0 4px">public</span>
+    <span class="badge badge-product" style="margin:0 4px">product key</span>
+    <span class="badge badge-user" style="margin:0 4px">user JWT</span>
+    <span class="badge badge-admin" style="margin:0 4px">admin JWT</span>
+    <span class="badge badge-gateway" style="margin:0 4px">webhook sig</span>
+  </div>
+  <div id="apiContainer"></div>
+</div>
+
+<!-- ──────────────────────────────────────────── -->
+<!-- SECTION 7 — DECISIONS -->
+<!-- ──────────────────────────────────────────── -->
+<div class="section" id="s7">
+  <div class="section-eyebrow">Appendix</div>
+  <div class="section-title">Decisions vs the PRD</div>
+  <div class="section-desc">Where this design differs from YoCore-PRD.md v1.5 — and the reasoning.</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Topic</th><th>PRD said</th><th>This design</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Refresh token TTL</td><td>7 days (Flow 1) / 30 days (prompt)</td><td><strong>30 days</strong> default / 7 days when !rememberMe</td><td>Prompt is explicit</td></tr>
+        <tr><td><code>productUsers.preferences</code></td><td>mentioned generically</td><td>Flexible JSON object with documented keys</td><td>Per prompt</td></tr>
+        <tr><td>Grace / hold periods</td><td>Hardcoded 1/5/7 + 30/60/85</td><td>Per-product configurable in <code>products.billingConfig</code></td><td>Per prompt constraint</td></tr>
+        <tr><td>SUPER_ADMIN uniqueness</td><td>Implied (one allowed)</td><td>Enforced via partial unique index on <code>users.role</code></td><td>Gap G3 — must fix</td></tr>
+        <tr><td>Webhook idempotency</td><td>Mentioned in prose</td><td>Enforced via <code>webhookEventsProcessed</code> unique index + Redis lock</td><td>Gap G1 — critical</td></tr>
+        <tr><td>Audit log tamper-evidence</td><td>Not specified</td><td>Hash chain (<code>prevHash</code> → <code>hash</code>) per product</td><td>SOC 2 compliance prep</td></tr>
+        <tr><td><code>billingScope</code> validation</td><td>Implied in schema description</td><td>Mongo <code>$jsonSchema</code> validator enforces the invariant</td><td>Prevents data corruption</td></tr>
+        <tr><td>SSLCommerz billing</td><td>Stripe as billing calendar</td><td>Confirmed as correct MVP approach; post-MVP can be replaced by native calendar</td><td>Risk documented</td></tr>
+        <tr><td>SSO cookie domain</td><td>Described conceptually</td><td>Explicit: <code>Domain=.yo.com; HttpOnly; Secure; SameSite=Lax</code></td><td>Security requirement</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</main><!-- /main -->
+</div><!-- /app -->
+
+<button class="totop" onclick="document.getElementById('mainScroll').scrollTop=0" title="Back to top">↑</button>
+
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { background: '#161b22', primaryColor: '#21262d', primaryTextColor: '#e6edf3', primaryBorderColor: '#30363d', lineColor: '#58a6ff', secondaryColor: '#0d1117', tertiaryColor: '#161b22' } });
+
+// ─── Navigation ───────────────────────────────
+function show(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('mainScroll').scrollTop = 0;
+}
+
+// ─── Collapsible helper ────────────────────────
+function toggleCard(el) {
+  el.classList.toggle('open');
+}
+
+// ─── Collection Data ───────────────────────────
+const COLLECTIONS = [
+  {
+    name: 'users',
+    purpose: 'Global user identity — one doc per human. Email is globally unique. Product-specific state lives in productUsers.',
+    schema: `{
+  _id: "usr_01HXXX",
+  email: "karim@example.com",         // UNIQUE
+  emailNormalized: "karim@example.com",
+  passwordHash: "$argon2id$...",       // Argon2id (never returned)
+  name: { first, last, display },
+  avatarUrl, timezone, locale,
+  status: "ACTIVE",                   // UNVERIFIED|ACTIVE|SUSPENDED|BANNED|DELETED
+  emailVerified: true,                // GLOBAL — once true stays true
+  emailVerifiedAt: ISODate,
+  emailVerifiedMethod: "email_link",  // email_link|invitation|oauth_*
+  role: "END_USER",                   // SUPER_ADMIN | END_USER
+  failedLoginAttempts: 0,
+  lockedUntil: null,                  // ISODate; checked on signin
+  lastLoginAt, lastLoginIp,
+  createdAt, updatedAt, deletedAt,
+  marketingOptIn: false, _v: 1
+}`,
+    indexes: `{ email: 1 }                    UNIQUE
+{ emailNormalized: 1 }
+{ status: 1, createdAt: -1 }
+{ role: 1 }  partial UNIQUE → role:"SUPER_ADMIN"
+{ lockedUntil: 1 }             sparse`,
+    note: '<strong>Security:</strong> passwordHash never returned in any API response. Cross-product queries by Super Admin only.'
+  },
+  {
+    name: 'sessions',
+    purpose: 'One doc per logged-in (user × product × device). Refresh tokens stored as SHA-256 hash only. Access tokens are stateless JWT.',
+    schema: `{
+  _id: "ses_01HXXX",
+  userId, productId, workspaceId,
+  refreshTokenHash: "sha256:...",  // UNIQUE — never store raw
+  refreshTokenFamilyId,            // theft detection
+  jwtId,                           // current access JWT jti
+  rememberMe: false,
+  device: { userAgent, ip, fingerprint, geo },
+  createdAt, lastUsedAt,
+  refreshExpiresAt: ISODate,       // TTL index auto-purges
+  revokedAt: null,
+  revokedReason: null              // user_logout|admin|refresh_reuse|password_change
+}`,
+    indexes: `{ refreshTokenHash: 1 }              UNIQUE
+{ userId: 1, productId: 1, revokedAt: 1 }
+{ refreshExpiresAt: 1 }  expireAfterSeconds:0 (TTL)
+{ refreshTokenFamilyId: 1 }`,
+    note: '<strong>Reuse detection:</strong> If revoked token presented + family has active sibling → revoke entire family + force re-login.'
+  },
+  {
+    name: 'authTokens',
+    purpose: 'One-time tokens: email verify, password reset, email change, SSO handoff, magic link. All stored as SHA-256 hash.',
+    schema: `{
+  _id: "atk_01HXXX",
+  userId, productId,               // productId optional (null = global)
+  type: "email_verify",            // email_verify|password_reset|
+                                   // email_change|sso_handoff|magic_link
+  tokenHash: "sha256:...",         // UNIQUE — raw token only in email
+  payload: { newEmail: "..." },    // type-specific extra data
+  expiresAt: ISODate,              // 24h verify | 1h reset | 60s sso
+  usedAt: null,                    // single-use guard
+  createdAt, ip
+}`,
+    indexes: `{ tokenHash: 1 }           UNIQUE
+{ userId: 1, type: 1 }
+{ expiresAt: 1 }  expireAfterSeconds:0 (TTL)`,
+    note: ''
+  },
+  {
+    name: 'products',
+    purpose: 'Registered Yo products (YoPM, YoSuite, etc.). Holds API credentials, webhook config, billing scope, and per-product lifecycle configuration.',
+    schema: `{
+  _id: "prod_yopm",
+  name, slug,                       // slug UNIQUE
+  domain, allowedOrigins[],
+  logoUrl, description,
+  status: "ACTIVE",                 // INACTIVE|ACTIVE|MAINTENANCE
+  apiKey: "yc_live_pk_xxx",         // UNIQUE
+  apiSecretHash: "sha256:...",      // shown ONCE, then hashed
+  webhookUrl, webhookSecret, webhookEvents[],
+  billingScope: "workspace",        // "user" | "workspace"
+  billingConfig: {
+    gatewayRouting: { usd:"stripe", bdt:"sslcommerz", default:"stripe" },
+    gracePeriodDays: 7,
+    gracePeriodEmailSchedule: [1,5,7],
+    holdPeriodDays: 85,
+    holdPeriodWarningDays: [30,60],
+    canReactivateDuringHold: true,
+    trialDefaultDays: 14,
+    trialWarningDays: [3,1]
+  },
+  defaultRoleSlug: "MEMBER",
+  createdAt, updatedAt, createdBy
+}`,
+    indexes: `{ slug: 1 }     UNIQUE
+{ apiKey: 1 }   UNIQUE
+{ status: 1 }`,
+    note: ''
+  },
+  {
+    name: 'productUsers',
+    purpose: 'Junction: user ↔ product. Presence = user has joined the product. Holds per-product status, onboarding flag, and flexible preferences.',
+    schema: `{
+  _id: "pu_01HXXX",
+  userId, productId,               // compound UNIQUE
+  status: "ACTIVE",                // ACTIVE|SUSPENDED|DELETED
+  joinedAt, lastActiveAt,
+  onboarded: true,
+  preferences: {                   // flexible JSON
+    notifications: { email: true, inApp: true },
+    theme: "dark", favorites: []
+  },
+  productRole: "END_USER",         // END_USER | PRODUCT_ADMIN
+  createdAt, updatedAt
+}`,
+    indexes: `{ userId: 1, productId: 1 }       UNIQUE
+{ productId: 1, status: 1, lastActiveAt: -1 }`,
+    note: '<strong>Isolation:</strong> Every product-side API call MUST filter by productId. YoCore never returns users doc without productUsers join.'
+  },
+  {
+    name: 'workspaces',
+    purpose: 'Teams / orgs scoped to a product. Carries billing suspension state and lifecycle warning flags for cron idempotency.',
+    schema: `{
+  _id: "ws_01HXXX",
+  productId, name,
+  slug,                            // UNIQUE within productId
+  ownerUserId, billingContactUserId,
+  status: "ACTIVE",                // ACTIVE|SUSPENDED|DELETED
+  suspended: false,                // billing flag (fast reads)
+  suspensionDate, suspensionReason,
+  suspensionWarning30Sent: false,
+  suspensionWarning60Sent: false,
+  trialWarningSent: { days3:false, days1:false },
+  trialConverted: false,           // skip trial-end cron if true
+  dataDeleted: false,              // set on Day 85 — IRREVERSIBLE
+  dataDeletedAt: null,
+  timezone, settings: {},
+  createdAt, updatedAt
+}`,
+    indexes: `{ productId: 1, slug: 1 }          UNIQUE
+{ productId: 1, ownerUserId: 1 }
+{ suspended: 1, suspensionDate: 1 }  cron queries
+{ status: 1 }`,
+    note: '<strong>Day 85:</strong> dataDeleted=true is permanent. auditLogs entry is kept forever even after data purge.'
+  },
+  {
+    name: 'workspaceMembers',
+    purpose: 'User membership + role within a workspace. Used for seat counting, permission checks, and invitation flow.',
+    schema: `{
+  _id: "wm_01HXXX",
+  workspaceId, productId,          // productId denormalized
+  userId,
+  roleId, roleSlug,                // roleSlug denorm for fast checks
+  status: "ACTIVE",                // ACTIVE|INVITED|REMOVED
+  addedBy,
+  joinedAt, removedAt, removedBy
+}`,
+    indexes: `{ workspaceId: 1, userId: 1 }       UNIQUE
+{ userId: 1, productId: 1, status: 1 }
+{ workspaceId: 1, status: 1 }       seat counting`,
+    note: ''
+  },
+  {
+    name: 'roles',
+    purpose: 'Role definitions per product. Platform roles (OWNER, ADMIN, MEMBER, VIEWER) are read-only. Custom roles can be created by Super Admin.',
+    schema: `{
+  _id: "role_01HXXX",
+  productId,
+  slug: "ADMIN",                   // OWNER|ADMIN|MEMBER|VIEWER|custom
+  name: "Administrator",
+  isPlatform: true,                // true = built-in, immutable
+  isDefault: false,
+  permissions: [
+    "workspace.read", "workspace.update",
+    "member.invite", "billing.read"
+  ],
+  inheritsFrom: null,              // optional FK → parent role
+  createdAt, updatedAt
+}`,
+    indexes: `{ productId: 1, slug: 1 }  UNIQUE`,
+    note: ''
+  },
+  {
+    name: 'billingPlans',
+    purpose: 'Plan definitions per product. Flexible gatewayPriceIds object — add a new gateway by adding a key, no migration.',
+    schema: `{
+  _id: "plan_01HXXX",
+  productId, name, slug,           // slug UNIQUE within product
+  isFree: false,
+  amount: 2900,                    // smallest unit (cents/paisa)
+  currency: "usd",
+  interval: "month",               // month|year|one_time
+  trialDays: 14,
+  gatewayPriceIds: {               // flexible — add gateway = add key
+    stripe: "price_1QXxx",
+    sslcommerz: null,              // no plan object in SSLCommerz
+    paypal: null,                  // [POST-MVP]
+    paddle: null                   // [POST-MVP]
+  },
+  limits: {
+    maxWorkspaces: 5,              // -1 = unlimited
+    maxMembers: 25,
+    storageMb: 10240,
+    custom: {}
+  },
+  seatBased: false,
+  perSeatAmount: null, includedSeats: null,
+  status: "ACTIVE",               // DRAFT|ACTIVE|ARCHIVED
+  visibility: "public",
+  createdAt, updatedAt, createdBy
+}`,
+    indexes: `{ productId: 1, slug: 1 }                    UNIQUE
+{ productId: 1, status: 1, visibility: 1 }`,
+    note: '<strong>Edit guard:</strong> amount and currency are immutable once ACTIVE (Stripe constraint) — must ARCHIVE and create new plan.'
+  },
+  {
+    name: 'subscriptions',
+    purpose: 'Active/past subscriptions. Subject is userId or workspaceId depending on product billingScope. Carries full gateway refs and lifecycle state.',
+    schema: `{
+  _id: "sub_01HXXX",
+  productId, planId,
+  subjectType: "workspace",        // "user"|"workspace"
+  subjectUserId: null,
+  subjectWorkspaceId: "ws_01HXXX",
+  gateway: "stripe",               // stripe|sslcommerz|paypal|paddle|null
+  gatewayRefs: {                   // flexible — only used keys populated
+    stripeCustomerId, stripeSubscriptionId, stripeLatestInvoiceId,
+    sslcommerzTranId, sslcommerzValId,
+    paypalSubscriptionId, paypalOrderId,       // [POST-MVP]
+    paddleSubscriptionId, paddleCheckoutId     // [POST-MVP]
+  },
+  status: "ACTIVE",                // TRIALING|ACTIVE|PAST_DUE|CANCELED|INCOMPLETE
+  cancelAtPeriodEnd: false,
+  currentPeriodStart, currentPeriodEnd,
+  trialStartsAt, trialEndsAt,
+  quantity: 1,
+  paymentFailedAt: null,
+  graceEmailsSent: { day1:false, day5:false, day7:false },
+  amount: 2900, currency: "usd",
+  lastWebhookEventId: null,
+  createdAt, updatedAt
+}`,
+    indexes: `{ productId:1, subjectWorkspaceId:1, status:1 }
+{ productId:1, subjectUserId:1, status:1 }
+{ "gatewayRefs.stripeSubscriptionId": 1 }  sparse UNIQUE
+{ status:1, currentPeriodEnd:1 }   renewal cron
+{ status:1, trialEndsAt:1 }        trial cron
+{ status:1, paymentFailedAt:1 }    grace cron`,
+    note: '<strong>billingScope enforcement:</strong> $jsonSchema validator ensures exactly one of subjectUserId/subjectWorkspaceId is set.'
+  },
+  {
+    name: 'paymentGateways',
+    purpose: 'Per-product gateway config. Provider-agnostic: one row per provider. All credentials AES-256-GCM encrypted. Adding a new gateway never requires a schema change.',
+    schema: `{
+  _id: "pg_01HXXX",
+  productId,
+  provider: "stripe",              // stripe|sslcommerz|paypal|paddle
+  mode: "live",                    // live|test
+  status: "ACTIVE",                // ACTIVE|DISABLED|INVALID_CREDENTIALS
+  displayName: "Stripe — Production",
+  credentialsEncrypted: {          // keys vary per provider
+    // Stripe:
+    secretKey: { iv, tag, ct },    // AES-256-GCM
+    webhookSecret: { iv, tag, ct }
+    // SSLCommerz: storeId, storePasswd, webhookSecret
+    // PayPal [POST-MVP]: clientId, clientSecret, webhookId
+    // Paddle [POST-MVP]: vendorId, vendorAuthCode, webhookSecret, publicKey
+  },
+  lastVerifiedAt, lastVerificationStatus, lastVerificationError,
+  createdAt, updatedAt, createdBy
+}`,
+    indexes: `{ productId:1, provider:1, mode:1 }  UNIQUE
+{ productId:1, status:1 }`,
+    note: '<strong>Security:</strong> Plaintext secret never logged or returned via API. Decryption only inside gateway handler at request time — lives in memory only.'
+  },
+  {
+    name: 'invitations',
+    purpose: 'Workspace invitations with 72h expiry. Raw token only in email; DB stores SHA-256 hash. Supports both existing-user and new-user acceptance paths.',
+    schema: `{
+  _id: "inv_01HXXX",
+  productId, workspaceId,
+  email,                           // lowercased
+  roleId, roleSlug, invitedBy,
+  tokenHash: "sha256:...",         // raw token emailed only
+  isExistingUser: false,           // resolved at send time
+  status: "PENDING",               // PENDING|ACCEPTED|EXPIRED|REVOKED
+  expiresAt: ISODate,              // now + 72h (TTL index)
+  createdAt, acceptedAt,
+  acceptedByUserId, revokedAt,
+  revokedBy, resendCount, lastSentAt
+}`,
+    indexes: `{ tokenHash: 1 }                     UNIQUE
+{ workspaceId:1, email:1, status:1 }
+{ expiresAt: 1 }  expireAfterSeconds:0 (TTL)
+{ status:1, expiresAt:1 }`,
+    note: ''
+  },
+  {
+    name: 'webhookDeliveries',
+    purpose: 'YoCore → Product event delivery log. Tracks attempts, retries (exponential backoff: 30s→5m→30m→2h→6h), and delivery status.',
+    schema: `{
+  _id: "whd_01HXXX",
+  productId, event, eventId,       // eventId UNIQUE (idempotency)
+  url, payload, signatureHeader,
+  status: "DELIVERED",             // PENDING|DELIVERED|FAILED|DEAD
+  attempts: [
+    { at: ISODate, statusCode: 200, durationMs: 142, error: null }
+  ],
+  attemptCount: 1, nextRetryAt,
+  deliveredAt, createdAt           // TTL: 90d retention
+}`,
+    indexes: `{ productId:1, status:1, nextRetryAt:1 }
+{ eventId:1 }  UNIQUE
+{ createdAt:1 }  expireAfterSeconds:7776000 (90d TTL)`,
+    note: ''
+  },
+  {
+    name: 'auditLogs',
+    purpose: 'Immutable append-only event trail. Hash chain for tamper evidence. Used for compliance (SOC 2). Never updated — only inserted.',
+    schema: `{
+  _id: "log_01HXXX",
+  ts: ISODate,
+  productId, workspaceId,
+  actor: {
+    type: "user",                  // user|super_admin|product|system|webhook
+    id, ip, userAgent, apiKeyId
+  },
+  action: "subscription.created", // dotted namespace
+  resource: { type: "subscription", id: "sub_xxx" },
+  outcome: "success",             // success|failure|denied
+  reason, metadata,
+  // Tamper detection
+  prevHash: "sha256:...",         // hash of previous log in product
+  hash: "sha256:..."              // hash(prevHash + canonical(this))
+}`,
+    indexes: `{ productId:1, ts:-1 }
+{ "actor.id":1, ts:-1 }
+{ action:1, ts:-1 }
+{ "resource.type":1, "resource.id":1, ts:-1 }`,
+    note: '<strong>Retention:</strong> 7 years for billing actions, 2 years for auth. Background job archives to S3 after 90 days, then prunes from Mongo.'
+  },
+  {
+    name: 'bundles',
+    purpose: 'Cross-product subscription packages. A bundle creates one parent subscription + child subscriptions (one per component product) on purchase.',
+    schema: `{
+  _id: "bdl_01HXXX",
+  name, slug,                      // slug UNIQUE
+  description,
+  components: [
+    { productId: "prod_yopm",    planId: "plan_yopm_pro" },
+    { productId: "prod_yosuite", planId: "plan_yosuite_biz" }
+  ],
+  amount: 4900, currency: "usd",
+  interval: "month", intervalCount: 1,
+  gatewayPriceIds: { stripe: "price_xxx", paypal:null, paddle:null, sslcommerz:null },
+  status: "ACTIVE",               // DRAFT|ACTIVE|ARCHIVED
+  startsAt, endsAt,
+  createdAt, createdBy
+}`,
+    indexes: `{ slug: 1 }   UNIQUE
+{ status: 1 }`,
+    note: '<strong>Cancel rule:</strong> Must cancel the bundle parent → cron cascades to children. Children cannot be canceled individually.'
+  }
+];
+
+function renderCollections() {
+  const grid = document.getElementById('collGrid');
+  COLLECTIONS.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'coll-card';
+    card.innerHTML = `
+      <div class="coll-name" onclick="toggleCard(this.closest('.coll-card'))">
+        <span>\`${c.name}\`</span>
+        <span class="coll-chevron">▼</span>
+      </div>
+      <div class="coll-purpose">${c.purpose}</div>
+      <div class="coll-body">
+        <div class="code-block">${escHtml(c.schema)}</div>
+        ${c.indexes ? `<div class="idx-label">Indexes</div><div class="idx-block">${escHtml(c.indexes)}</div>` : ''}
+        ${c.note ? `<div class="security-note">${c.note}</div>` : ''}
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ─── Flow Data ─────────────────────────────────
+const FLOWS = [
+  {
+    id:'A', label:'A', name:'Super Admin: Signup → Login → Dashboard',
+    sub:'bootstrap, signin, dashboard aggregation',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>A1</td><td class="ep">POST /v1/admin/bootstrap</td><td><span class="op-r">R</span> users <code>{role}</code> (abort if SUPER_ADMIN exists) → <span class="op-w">W</span> users <code>{_id, email, emailNormalized, passwordHash, name, status:"ACTIVE", emailVerified:true, role:"SUPER_ADMIN", failedLoginAttempts:0, createdAt, _v:1}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.bootstrap"}</code></td><td>—</td></tr>
+<tr><td>A2</td><td class="ep">POST /v1/auth/signin</td><td><span class="op-r">R</span>+<span class="op-u">U</span> users <code>{passwordHash, status, failedLoginAttempts, lockedUntil → lastLoginAt:now, failedLoginAttempts:0}</code> → <span class="op-w">W</span> sessions <code>{userId, productId:null, refreshTokenHash:"sha256:...", refreshTokenFamilyId, jwtId, rememberMe, device:{userAgent,ip,fingerprint,geo}, refreshExpiresAt:now+30d}</code> → <span class="op-w">W</span> auditLogs</td><td>INCR ratelimit:signin:&lt;ip&gt;</td></tr>
+<tr><td>A3</td><td class="ep">GET /v1/admin/dashboard</td><td><span class="op-r">R</span> products <code>{_id, name, status}</code> → <span class="op-r">R</span> subscriptions aggregate <code>{productId, status, amount}</code> → SUM amount WHERE status:"ACTIVE" (MRR per product) → <span class="op-r">R</span> productUsers COUNT by productId</td><td>GET cache:dashboard:overview (60s TTL)</td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>Error path:</strong> Wrong pw → users U {failedLoginAttempts:+1}. At 5 → U {lockedUntil:now+15m} + auditLogs W {outcome:"failure"}.</div>`
+  },
+  {
+    id:'B', label:'B', name:'Super Admin: Register a New Product',
+    sub:'product registry, API key generation, default roles',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th></tr></thead>
+<tbody>
+<tr><td>B1</td><td class="ep">POST /v1/admin/products</td><td><span class="op-r">R</span> products <code>{slug}</code> → <span class="op-w">W</span> products <code>{_id:"prod_xxx", name, slug, domain, allowedOrigins, apiKey:"yc_live_pk_...", apiSecretHash:"sha256:...", status:"INACTIVE", billingScope, billingConfig:{gatewayRouting,gracePeriodDays,...}, webhookUrl, createdAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"product.created"}</code></td></tr>
+<tr><td>B2</td><td>(same txn)</td><td><span class="op-w">W</span> roles ×4 <code>{productId, slug:"OWNER"|"ADMIN"|"MEMBER"|"VIEWER", isPlatform:true, permissions:[...], createdAt}</code></td></tr>
+<tr><td>B3</td><td>Response</td><td>Returns plaintext <code>apiSecret</code> <strong>once only</strong> — not stored</td></tr>
+<tr><td>B4</td><td class="ep">PATCH /v1/admin/products/:id</td><td><span class="op-u">U</span> products <code>{status:"ACTIVE", updatedAt}</code> → <span class="op-w">W</span> auditLogs → DEL cache:product:apikey:&lt;apiKey&gt;</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'C', label:'C', name:'Configure Payment Gateways',
+    sub:'Stripe MVP + SSLCommerz MVP + PayPal/Paddle schema-ready',
+    content: `
+<div class="sub-title">C1 — Add Stripe <span class="badge badge-mvp">MVP</span></div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>C1.1 Encrypt creds</td><td>— (AES-256-GCM in memory)</td><td>—</td></tr>
+<tr><td>C1.2 Verify key</td><td>—</td><td><em>Stripe GET /v1/account → must 200</em></td></tr>
+<tr><td>C1.3 Persist</td><td><span class="op-w">W</span> paymentGateways <code>{productId, provider:"stripe", mode:"live", status:"ACTIVE", credentialsEncrypted:{secretKey:{iv,tag,ct}, webhookSecret:{iv,tag,ct}}, lastVerifiedAt:now}</code> → <span class="op-w">W</span> auditLogs <code>{action:"gateway.created"}</code></td><td>—</td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>Failure:</strong> Verify fails → auditLogs W {outcome:"failure"}. Do NOT save paymentGateways row.</div>
+<div class="sub-title">C2 — Add SSLCommerz <span class="badge badge-mvp">MVP</span></div>
+<div class="note-box"><code>credentialsEncrypted: {storeId:{iv,tag,ct}, storePasswd:{iv,tag,ct}, webhookSecret:{iv,tag,ct}}</code>. Verify via SSLCommerz test session.</div>
+<div class="sub-title">C3 — PayPal <span class="badge badge-post">POST-MVP</span> &amp; C4 — Paddle <span class="badge badge-post">POST-MVP</span></div>
+<div class="note-box">Schema rows created. No checkout flow wired for MVP.</div>
+<div class="sub-title">C5 — Configure routing</div>
+<div class="note-box"><span class="op-u">U</span> products <code>{billingConfig.gatewayRouting:{usd:"stripe",bdt:"sslcommerz",default:"stripe"}, updatedAt}</code> → <span class="op-w">W</span> auditLogs → Invalidate cache:product:apikey:&lt;apiKey&gt;</div>`
+  },
+  {
+    id:'D', label:'D', name:'Create a Billing Plan',
+    sub:'DRAFT → ACTIVE, auto-create in Stripe, SSLCommerz skip',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>D1</td><td class="ep">POST /v1/admin/products/:id/plans</td><td><span class="op-w">W</span> billingPlans <code>{productId, name, slug, amount, currency, interval, gatewayPriceIds:{stripe:null,...}, limits:{maxWorkspaces,maxMembers,...}, seatBased:false, status:"DRAFT", createdAt}</code></td><td>—</td></tr>
+<tr><td>D2</td><td>auto-create in Stripe</td><td>—</td><td><em>Stripe prices.create({unit_amount, currency, recurring:{interval}, metadata:{yocorePlanId}}) → "price_1QXxx"</em></td></tr>
+<tr><td>D3</td><td>—</td><td><span class="op-u">U</span> billingPlans <code>{gatewayPriceIds.stripe:"price_1QXxx", updatedAt}</code></td><td>—</td></tr>
+<tr><td>D4</td><td class="ep">POST /v1/admin/plans/:id/publish</td><td><span class="op-u">U</span> billingPlans <code>{status:"ACTIVE", updatedAt}</code> → <span class="op-w">W</span> auditLogs → DEL cache:plans:&lt;productId&gt;</td><td>—</td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>Edit guard:</strong> <code>amount</code> and <code>currency</code> immutable once ACTIVE (Stripe constraint) — must ARCHIVE + create new plan.</div>`
+  },
+  {
+    id:'E', label:'E', name:'Product ↔ YoCore Integration',
+    sub:'API key middleware — runs on every product-side call',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>E1 Read headers</td><td>—</td><td>GET cache:product:apikey:&lt;apiKey&gt; (60s TTL)</td></tr>
+<tr><td>E2 Cache miss</td><td><span class="op-r">R</span> products <code>{apiKey, apiSecretHash, status, _id, billingConfig, allowedOrigins, webhookUrl}</code></td><td>SETEX cache:product:apikey:&lt;apiKey&gt; 60s</td></tr>
+<tr><td>E3 Verify secret</td><td>If fail: <span class="op-w">W</span> auditLogs <code>{action:"auth.api_key.invalid", outcome:"failure", actor:{type:"product",apiKeyId}, ip}</code></td><td>—</td></tr>
+<tr><td>E4 Status check</td><td>product.status !== "ACTIVE" → 403</td><td>—</td></tr>
+<tr><td>E5 Inject context</td><td>req.productId, req.product set — every downstream query MUST include productId</td><td>—</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'F', label:'F', name:'End User: First Signup (New Account)',
+    sub:'New user, email verification, auto-login after verify, onboarding',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>Redis</th><th>Ext</th></tr></thead>
+<tbody>
+<tr><td>F1</td><td class="ep">POST /v1/auth/signup</td><td>—</td><td>INCR ratelimit:signup:ip:&lt;ip&gt; (10/h)</td><td>—</td></tr>
+<tr><td>F2</td><td>Dup check</td><td><span class="op-r">R</span> users <code>{emailNormalized, _id, status, emailVerified}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F4</td><td>Insert user</td><td><span class="op-w">W</span> users <code>{_id, email, emailNormalized, passwordHash, passwordUpdatedAt:now, name:{first,last,display}, timezone, locale, status:"UNVERIFIED", emailVerified:false, role:"END_USER", failedLoginAttempts:0, createdAt, _v:1}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F5</td><td>Join product</td><td><span class="op-w">W</span> productUsers <code>{userId, productId, status:"ACTIVE", joinedAt:now, onboarded:false, preferences:{notifications:{email:true,inApp:true},theme:"dark"}, productRole:"END_USER", createdAt}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F6</td><td>Token</td><td><span class="op-w">W</span> authTokens <code>{userId, productId, type:"email_verify", tokenHash:"sha256:...", expiresAt:now+24h, usedAt:null, createdAt, ip}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F7</td><td>Email</td><td>—</td><td>—</td><td><em>Resend — raw token in link</em></td></tr>
+<tr><td>F8</td><td>Audit</td><td><span class="op-w">W</span> auditLogs <code>{action:"user.created", actor:{type:"system"}, resource:{type:"user",id}}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F10</td><td class="ep">GET /v1/auth/verify-email?token=...</td><td><span class="op-r">R</span>+<span class="op-u">U</span> authTokens <code>{usedAt:now}</code> → <span class="op-u">U</span> users <code>{status:"ACTIVE", emailVerified:true, emailVerifiedAt:now, emailVerifiedMethod:"email_link"}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.email_verified"}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F11</td><td>Auto-login</td><td><span class="op-w">W</span> sessions <code>{userId, productId, workspaceId:null, refreshTokenHash:"sha256:...", refreshTokenFamilyId:"rtf_new", jwtId:"jti_new", rememberMe:false, device:{...}, createdAt, refreshExpiresAt:now+30d}</code></td><td>—</td><td>—</td></tr>
+<tr><td>F12</td><td class="ep">POST /v1/auth/finalize-onboarding</td><td><span class="op-w">W</span> workspaces <code>{productId, name, slug, ownerUserId, status:"ACTIVE", suspended:false, dataDeleted:false, createdAt}</code> → <span class="op-w">W</span> workspaceMembers <code>{workspaceId, productId, userId, roleSlug:"OWNER", status:"ACTIVE", addedBy:null, joinedAt:now}</code> → <span class="op-u">U</span> productUsers <code>{onboarded:true, lastActiveAt:now}</code> → <span class="op-w">W</span> auditLogs</td><td>—</td><td><em>Resend welcome</em></td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>Error paths:</strong> Token expired → 410 + resend. Token reused + already verified → 200 idempotent.</div>`
+  },
+  {
+    id:'G', label:'G', name:'Signup with Plan Selection',
+    sub:'3 paths: free, trial, direct paid',
+    content: `
+<div class="path-tag a">Path 1 — Free Plan</div>
+<div class="note-box">After F12: <span class="op-w">W</span> subscriptions <code>{productId, planId:"&lt;free&gt;", subjectType:"workspace", subjectWorkspaceId, gateway:null, status:"ACTIVE", quantity:1, currentPeriodStart:now, currentPeriodEnd:null, amount:0, createdAt}</code>. No gateway customer (lazy).</div>
+
+<div class="path-tag" style="border-color:#bc8cff;color:#bc8cff;background:#1c0e2a">Path 2 — Free Trial</div>
+<div class="note-box"><span class="op-w">W</span> subscriptions <code>{status:"TRIALING", trialStartsAt:now, trialEndsAt:now+14d}</code><br>
+<strong>Day 11:</strong> <span class="op-u">U</span> workspaces <code>{trialWarningSent.days3:true}</code> + email<br>
+<strong>Day 14 — Scenario A</strong> (PM on file): <span class="op-u">U</span> subscriptions <code>{status:"ACTIVE", gateway:"stripe", gatewayRefs:{stripeCustomerId,stripeSubscriptionId}, currentPeriodEnd}</code> + <span class="op-u">U</span> workspaces <code>{trialConverted:true}</code><br>
+<strong>Day 14 — Scenario B</strong> (no PM): <span class="op-u">U</span> subscriptions <code>{status:"CANCELED", cancelReason:"trial_no_payment_method"}</code> → <span class="op-u">U</span> workspaces <code>{suspended:true, suspensionDate:now}</code></div>
+
+<div class="path-tag b">Path 3 — Direct Paid Plan</div>
+<div class="note-box">Resolve <code>gateway = products.billingConfig.gatewayRouting[currency] ?? .default</code> → run Flow J. <code>subscriptions</code> row created by webhook handler (not synchronously).</div>`
+  },
+  {
+    id:'H', label:'H', name:'Login + Token Refresh + Logout',
+    sub:'Signin, lockout, refresh rotation, reuse detection, logout',
+    content: `
+<div class="sub-title">H1 — Signin</div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>Rate limit</td><td>—</td><td>INCR ratelimit:signin:email:&lt;hash&gt; (5/15m) + ratelimit:signin:ip:&lt;ip&gt;</td></tr>
+<tr><td>Lookup</td><td><span class="op-r">R</span> users <code>{email, passwordHash, status, failedLoginAttempts, lockedUntil, role, _id}</code></td><td>—</td></tr>
+<tr><td>Lockout check</td><td>lockedUntil &gt; now → 429 (no further DB)</td><td>—</td></tr>
+<tr><td>Argon2id verify</td><td>— (CPU-bound)</td><td>—</td></tr>
+<tr><td><strong>Success</strong></td><td><span class="op-u">U</span> users <code>{lastLoginAt:now, lastLoginIp, failedLoginAttempts:0, lockedUntil:null}</code> → <span class="op-w">W</span> sessions <code>{userId, productId, workspaceId, refreshTokenHash:"sha256:...", refreshTokenFamilyId:"rtf_new", jwtId:"jti_new", rememberMe, device:{userAgent,ip,fingerprint,geo}, createdAt, refreshExpiresAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.signin", outcome:"success"}</code></td><td>—</td></tr>
+<tr><td><strong>Failure</strong></td><td><span class="op-u">U</span> users <code>{failedLoginAttempts:+1}</code> → if ≥5: <code>{lockedUntil:now+15m}</code> → <span class="op-w">W</span> auditLogs <code>{outcome:"failure"}</code></td><td>—</td></tr>
+</tbody>
+</table></div>
+<div class="sub-title">H2 — Refresh token rotation</div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>Lookup</td><td><span class="op-r">R</span> sessions <code>{refreshTokenHash, revokedAt, refreshTokenFamilyId, userId, jwtId, productId, workspaceId, refreshExpiresAt}</code></td><td>—</td></tr>
+<tr><td><strong>REUSE DETECTED</strong></td><td><span class="op-u">U</span> sessions <code>{revokedAt:now, revokedReason:"refresh_reuse"}</code> for ALL docs with matching <code>refreshTokenFamilyId</code> → <span class="op-w">W</span> auditLogs <code>{action:"session.theft_detected"}</code></td><td>SET jwt:blocklist:&lt;jti&gt; for every active sibling jti</td></tr>
+<tr><td>Normal rotation</td><td><span class="op-u">U</span> sessions <code>{revokedAt:now, revokedReason:"rotated"}</code> (old) → <span class="op-w">W</span> sessions <code>{same familyId, new refreshTokenHash, new jwtId, lastUsedAt:now}</code> (new)</td><td>—</td></tr>
+</tbody>
+</table></div>
+<div class="sub-title">H3 — Logout</div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Scope</th><th>Endpoint</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>Single session</td><td class="ep">POST /v1/auth/logout</td><td><span class="op-r">R</span> sessions <code>{jwtId, _id}</code> → <span class="op-u">U</span> sessions <code>{revokedAt:now, revokedReason:"user_logout"}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.logout"}</code></td><td>SET jwt:blocklist:&lt;jti&gt; (TTL = remaining JWT exp)</td></tr>
+<tr><td>All sessions</td><td class="ep">POST /v1/auth/logout-all</td><td><span class="op-r">R</span> sessions <code>{jwtId, refreshExpiresAt}</code> WHERE <code>{userId, productId, revokedAt:null}</code> → <span class="op-u">U</span> all <code>{revokedAt:now, revokedReason:"user_logout"}</code> → <span class="op-w">W</span> auditLogs <code>{metadata:{sessionCount}}</code></td><td>SET jwt:blocklist:&lt;jti&gt; for each active jti</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'I', label:'I', name:'Same User — Second Product Signup',
+    sub:'Existing user joins YoSuite — skip verification entirely',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th></tr></thead>
+<tbody>
+<tr><td>I1</td><td class="ep">POST /v1/auth/signup {email, productId:"prod_yosuite"}</td><td><span class="op-r">R</span> users <code>{emailNormalized, passwordHash, status, emailVerified, _id}</code></td></tr>
+<tr><td>I2</td><td>Argon2id verify</td><td>— (wrong → 401 generic; no enumeration)</td></tr>
+<tr><td>I3</td><td>Check junction</td><td><span class="op-r">R</span> productUsers <code>{userId, productId:"prod_yosuite", status}</code></td></tr>
+<tr><td>I4</td><td>Found</td><td>→ 409 "Already a member"</td></tr>
+<tr><td>I5</td><td>Not found → insert. Skip email verify.</td><td><span class="op-w">W</span> productUsers <code>{userId, productId:"prod_yosuite", status:"ACTIVE", joinedAt:now, onboarded:false, productRole:"END_USER", preferences:{...}, createdAt}</code></td></tr>
+<tr><td>I6</td><td>Mint session</td><td><span class="op-w">W</span> sessions <code>{userId, productId:"prod_yosuite", workspaceId:null, refreshTokenHash:"sha256:...", refreshTokenFamilyId, jwtId, device, refreshExpiresAt:now+30d}</code></td></tr>
+<tr><td>I8</td><td>Onboarding</td><td><span class="op-w">W</span> workspaces <code>{productId:"prod_yosuite", name, slug, ownerUserId, status:"ACTIVE", suspended:false, createdAt}</code> → <span class="op-w">W</span> workspaceMembers <code>{workspaceId, userId, roleSlug:"OWNER", status:"ACTIVE"}</code> → <span class="op-u">U</span> productUsers <code>{onboarded:true}</code></td></tr>
+<tr><td>I9</td><td>Audit</td><td><span class="op-w">W</span> auditLogs <code>{action:"productuser.linked", metadata:{productId:"prod_yosuite"}}</code></td></tr>
+</tbody>
+</table></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+<div class="note-box"><strong>Before:</strong><br>users: 1 · productUsers: 1 · sessions: 1 · workspaces: 1</div>
+<div class="note-box" style="border-color:#3fb950"><strong>After:</strong><br>users: 1 (unchanged) · productUsers: 2 · sessions: 2 · workspaces: 2</div>
+</div>`
+  },
+  {
+    id:'J', label:'J', name:'Subscribe to a Paid Plan (Gateway-Resolved)',
+    sub:'J1 Stripe + J4 SSLCommerz (MVP) | J2 PayPal + J3 Paddle (POST-MVP)',
+    content: `
+<div class="note-box"><strong>Resolution:</strong> <code>gateway = products.billingConfig.gatewayRouting[user.currency] ?? .default</code></div>
+
+<div class="sub-title">J1 — Stripe <span class="badge badge-mvp">MVP</span></div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>J1.1 Read context</td><td><span class="op-r">R</span> products <code>{billingConfig.gatewayRouting, billingScope}</code> → <span class="op-r">R</span> billingPlans <code>{amount, currency, interval, gatewayPriceIds.stripe, trialDays, seatBased}</code> → <span class="op-r">R</span> paymentGateways <code>{credentialsEncrypted, status}</code> (stripe) → <span class="op-r">R</span> subscriptions <code>{gatewayRefs.stripeCustomerId}</code> (existing customer?)</td><td>—</td></tr>
+<tr><td>J1.2 Customer</td><td>—</td><td><em>Stripe customers.create({email, name, metadata:{yocoreUserId}})</em></td></tr>
+<tr><td>J1.3 Checkout</td><td>—</td><td><em>Stripe checkout.sessions.create({customer, line_items:[{price:gatewayPriceIds.stripe, quantity}], mode:"subscription", metadata:{productId, planId, subjectWorkspaceId}})</em></td></tr>
+<tr><td>J1.6 Webhook completed</td><td>Idempotency: <span class="op-r">R</span> subscriptions <code>{lastWebhookEventId}</code> (noop if matches). → UPSERT subscriptions <code>{productId, planId, subjectType:"workspace", subjectWorkspaceId, gateway:"stripe", gatewayRefs:{stripeCustomerId:"cus_xxx", stripeSubscriptionId:"sub_xxx", stripeLatestInvoiceId:"in_xxx"}, status:"ACTIVE", currentPeriodStart, currentPeriodEnd, quantity:1, amount, currency, lastWebhookEventId:event.id, createdAt}</code> → <span class="op-w">W</span> webhookDeliveries <code>{event:"subscription.activated", status:"PENDING"}</code> → <span class="op-w">W</span> auditLogs</td><td><em>Stripe subscriptions.retrieve + Resend activation</em></td></tr>
+</tbody>
+</table></div>
+
+<div class="sub-title">J2 — PayPal <span class="badge badge-post">POST-MVP</span></div>
+<div class="note-box">Schema ready. On activation: <code>BILLING.SUBSCRIPTION.ACTIVATED</code> → cert verify → subscriptions UPSERT keyed on <code>gatewayRefs.paypalSubscriptionId</code>.</div>
+
+<div class="sub-title">J3 — Paddle <span class="badge badge-post">POST-MVP</span></div>
+<div class="note-box">Schema ready. On activation: <code>subscription.created</code> → HMAC paddle-signature → subscriptions UPSERT. <strong>Never</strong> add tax — Paddle is Merchant of Record.</div>
+
+<div class="sub-title">J4 — SSLCommerz <span class="badge badge-mvp">MVP</span> — Stripe as billing calendar</div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>J4.1 Read</td><td><span class="op-r">R</span> paymentGateways (stripe + sslcommerz) <code>{credentialsEncrypted}</code> → <span class="op-r">R</span> billingPlans <code>{amount, currency}</code></td><td>—</td></tr>
+<tr><td>J4.2 Stripe customer</td><td>—</td><td><em>Stripe customers.create — calendar only, no PM needed</em></td></tr>
+<tr><td>J4.3 Calendar sub</td><td>—</td><td><em>Stripe subscriptions.create({collection_method:"send_invoice", days_until_due:1}) — Stripe NEVER auto-charges</em></td></tr>
+<tr><td>J4.4 Stripe webhook invoice.created</td><td><span class="op-w">W</span> subscriptions <code>{gateway:"sslcommerz", gatewayRefs:{stripeCustomerId, stripeSubscriptionId, stripeLatestInvoiceId, sslcommerzTranId:null}, status:"INCOMPLETE", amount, currency:"bdt"}</code></td><td>—</td></tr>
+<tr><td>J4.8 IPN received</td><td>Idempotency: <span class="op-r">R</span> subscriptions <code>{gatewayRefs.sslcommerzTranId}</code> (noop if matches)</td><td>—</td></tr>
+<tr><td>J4.9 Double-validate</td><td>Fail → <span class="op-w">W</span> auditLogs <code>{outcome:"failure", reason:"ipn_validation_failed"}</code></td><td><em>Verify HMAC verify_sign + SSLCommerz Order Validation API</em></td></tr>
+<tr><td>J4.10 Activate</td><td><span class="op-u">U</span> subscriptions <code>{status:"ACTIVE", currentPeriodEnd, gatewayRefs.sslcommerzTranId:"txn_xxx", gatewayRefs.sslcommerzValId:"val_xxx", lastWebhookEventId:tran_id, updatedAt}</code> → <span class="op-w">W</span> webhookDeliveries → <span class="op-w">W</span> auditLogs</td><td><em>Stripe invoices.pay({paid_out_of_band:true}) + Resend confirmation</em></td></tr>
+</tbody>
+</table></div>
+<div class="note-box"><strong>Renewal:</strong> Stripe fires invoice.created again at next currentPeriodEnd → loops back to J4.5.</div>`
+  },
+  {
+    id:'L', label:'L', name:'Workspace Management: Multiple Workspaces',
+    sub:'Seat limits, workspace switch, JWT re-scope',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th></tr></thead>
+<tbody>
+<tr><td>L1 — Limit check</td><td class="ep">POST /v1/workspaces</td><td><span class="op-r">R</span> subscriptions <code>{planId, status, subjectWorkspaceId}</code> → <span class="op-r">R</span> billingPlans <code>{limits.maxWorkspaces}</code> → COUNT workspaces <code>{productId, ownerUserId, status:{$ne:"DELETED"}}</code> → if ≥ limit: 402</td></tr>
+<tr><td>L2 — Create</td><td></td><td><span class="op-w">W</span> workspaces <code>{productId, name, slug, ownerUserId, billingContactUserId, status:"ACTIVE", suspended:false, dataDeleted:false, timezone, createdAt}</code> → <span class="op-w">W</span> workspaceMembers <code>{workspaceId, userId, roleSlug:"OWNER", status:"ACTIVE", addedBy:null, joinedAt:now}</code> → <span class="op-w">W</span> auditLogs</td></tr>
+<tr><td>L3 — Switch</td><td class="ep">POST /v1/auth/switch-workspace</td><td><span class="op-r">R</span> workspaceMembers <code>{workspaceId, userId, status, roleSlug}</code> → <span class="op-r">R</span> workspaces <code>{status, suspended}</code> → <span class="op-u">U</span> sessions <code>{workspaceId:newId, jwtId:newJti, lastUsedAt:now}</code></td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'M', label:'M', name:'Admin Invites User to Workspace',
+    sub:'Path A: existing user | Path B: new user (auto-verify via invitation trust)',
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>DB — fields touched</th><th>Ext</th></tr></thead>
+<tbody>
+<tr><td>M1 Guards</td><td><span class="op-r">R</span> workspaceMembers <code>{userId, roleSlug, status}</code> (caller OWNER/ADMIN?) → <span class="op-r">R</span> billingPlans <code>{limits.maxMembers}</code> → COUNT workspaceMembers active → <span class="op-r">R</span> users <code>{emailNormalized, _id}</code> (→isExistingUser) → <span class="op-r">R</span> workspaceMembers (dup check)</td><td>—</td></tr>
+<tr><td>M2 Token + UPSERT</td><td>UPSERT invitations <code>{productId, workspaceId, email, roleId, roleSlug, invitedBy, tokenHash:"sha256:...", isExistingUser, status:"PENDING", expiresAt:now+72h, resendCount:0, lastSentAt:now, createdAt}</code></td><td>—</td></tr>
+<tr><td>M3 Email</td><td>—</td><td><em>Resend — /accept or /signup link</em></td></tr>
+</tbody>
+</table></div>
+
+<div class="path-tag a">Path A — Existing user accepts</div>
+<div class="note-box"><code>POST /v1/invitations/accept {token}</code><br>
+<span class="op-r">R</span> invitations <code>{tokenHash, expiresAt, status, workspaceId, productId, roleId, roleSlug}</code> →
+<span class="op-w">W</span> workspaceMembers <code>{workspaceId, userId, roleId, roleSlug, status:"ACTIVE", addedBy, joinedAt:now}</code> →
+UPSERT productUsers <code>{userId, productId, status:"ACTIVE", joinedAt:now}</code> →
+<span class="op-u">U</span> invitations <code>{status:"ACCEPTED", acceptedAt:now, acceptedByUserId}</code> →
+<span class="op-w">W</span> auditLogs <code>{action:"invitation.accepted"}</code></div>
+
+<div class="path-tag b">Path B — New user accepts + creates account</div>
+<div class="note-box"><code>POST /v1/invitations/accept-new {token, name, password}</code><br>
+<span class="op-w">W</span> users <code>{email, passwordHash, name, status:"ACTIVE", emailVerified:true, emailVerifiedMethod:"invitation", role:"END_USER", createdAt}</code> →
+<span class="op-w">W</span> productUsers <code>{userId, productId, status:"ACTIVE", joinedAt:now, onboarded:true}</code> →
+<span class="op-w">W</span> workspaceMembers <code>{workspaceId, userId, roleSlug, status:"ACTIVE", joinedAt:now}</code> →
+<span class="op-u">U</span> invitations <code>{status:"ACCEPTED", acceptedAt, acceptedByUserId}</code> →
+<span class="op-w">W</span> sessions <code>{userId, productId, workspaceId, refreshTokenHash, refreshTokenFamilyId, jwtId, refreshExpiresAt:now+30d}</code> →
+<span class="op-w">W</span> auditLogs <code>{action:"user.created.via.invitation"}</code></div>
+<div class="note-box warn"><strong>Seat race:</strong> countDocuments rechecked atomically inside Mongo transaction; overflow → abort + rollback.</div>`
+  },
+  {
+    id:'N', label:'N', name:'Billing Lifecycle — Trial → Failure → Deletion',
+    sub:'Day-by-day timeline, crons, reactivation path',
+    content: `
+<div class="note-box"><strong>All thresholds from products.billingConfig</strong> — gracePeriodDays, gracePeriodEmailSchedule, holdPeriodDays, holdPeriodWarningDays.</div>
+
+<div class="tbl-wrap"><table>
+<thead><tr><th>Day</th><th>Trigger</th><th>DB — fields touched</th></tr></thead>
+<tbody>
+<tr><td><strong>D+0</strong></td><td>Stripe invoice.payment_failed / SSLCommerz nightly cron / PayPal webhook / Paddle webhook</td><td><span class="op-u">U</span> subscriptions <code>{status:"PAST_DUE", paymentFailedAt:now, graceEmailsSent.day1:true, lastWebhookEventId, updatedAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"subscription.payment_failed"}</code></td></tr>
+<tr><td><strong>D+5</strong></td><td>Cron billing.grace.tick</td><td><span class="op-u">U</span> subscriptions <code>{graceEmailsSent.day5:true, updatedAt}</code></td></tr>
+<tr><td><strong>D+7</strong></td><td>Cron billing.grace.tick</td><td><span class="op-u">U</span> subscriptions <code>{graceEmailsSent.day7:true, updatedAt}</code></td></tr>
+<tr><td><strong>D+8</strong></td><td>Stripe customer.subscription.deleted (or cron for SSLCommerz/PayPal/Paddle)</td><td><span class="op-u">U</span> subscriptions <code>{status:"CANCELED", canceledAt:now, cancelReason:"payment_failed"}</code> → <span class="op-u">U</span> workspaces <code>{suspended:true, suspensionDate:now, suspensionReason:"payment_failed", status:"SUSPENDED"}</code> → <span class="op-w">W</span> webhookDeliveries <code>{event:"subscription.canceled"}</code> → <span class="op-w">W</span> auditLogs</td></tr>
+<tr><td><strong>D+30</strong></td><td>Cron billing.hold.warnings</td><td><span class="op-u">U</span> workspaces <code>{suspensionWarning30Sent:true, updatedAt}</code></td></tr>
+<tr><td><strong>D+60</strong></td><td>Cron billing.hold.warnings</td><td><span class="op-u">U</span> workspaces <code>{suspensionWarning60Sent:true, updatedAt}</code></td></tr>
+<tr><td class="danger" style="color:#f85149;font-weight:700"><strong>D+85 PERMANENT</strong></td><td>Cron billing.hold.purge (Mongo transaction)</td><td><span class="op-d">D</span> workspaceMembers <code>{workspaceId}</code> all rows → <span class="op-d">D</span> subscriptions <code>{subjectWorkspaceId}</code> → <span class="op-d">D</span> invitations PENDING → <span class="op-d">D</span> roles custom-only → <span class="op-u">U</span> workspaces <code>{status:"DELETED", dataDeleted:true, dataDeletedAt:now}</code> → <span class="op-w">W</span> webhookDeliveries <code>{event:"workspace.deleted"}</code> → <span class="op-w">W</span> auditLogs (permanent)</td></tr>
+</tbody>
+</table></div>
+
+<div class="note-box" style="border-color:#3fb950"><strong>Reactivation (before D+85, canReactivateDuringHold=true):</strong><br>
+Payment webhook success → <span class="op-u">U</span> subscriptions <code>{status:"ACTIVE", paymentFailedAt:null, graceEmailsSent:{day1:false,day5:false,day7:false}, currentPeriodEnd:&lt;new&gt;, updatedAt}</code> — <strong>same doc restored, not recreated</strong><br>
+→ <span class="op-u">U</span> workspaces <code>{suspended:false, suspensionDate:null, suspensionReason:null, suspensionWarning30Sent:false, suspensionWarning60Sent:false, status:"ACTIVE"}</code><br>
+→ <span class="op-w">W</span> auditLogs <code>{action:"subscription.reactivated"}</code></div>`
+  },
+  {
+    id:'O', label:'O', name:'Forgot Password / Reset Password',
+    sub:'One-hour token, revoke all sessions on success',
+    isNew: true,
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>Redis</th><th>Ext</th></tr></thead>
+<tbody>
+<tr><td>O1</td><td class="ep">POST /v1/auth/forgot-password</td><td><span class="op-r">R</span> users <code>{emailNormalized, _id, status}</code> — <strong>always 200</strong> (no enumeration)</td><td>INCR ratelimit:forgot:email:&lt;hash&gt; (3/h)</td><td>—</td></tr>
+<tr><td>O2</td><td>Invalidate prior tokens</td><td><span class="op-u">U</span> authTokens <code>{usedAt:now}</code> WHERE <code>{userId, type:"password_reset", usedAt:null}</code></td><td>—</td><td>—</td></tr>
+<tr><td>O3</td><td>Create token</td><td><span class="op-w">W</span> authTokens <code>{userId, productId, type:"password_reset", tokenHash:"sha256:...", expiresAt:now+1h, usedAt:null, createdAt, ip}</code></td><td>—</td><td>—</td></tr>
+<tr><td>O4</td><td>Email</td><td>—</td><td>—</td><td><em>Resend — raw token in link</em></td></tr>
+<tr><td>O5</td><td class="ep">POST /v1/auth/reset-password</td><td><span class="op-r">R</span> authTokens <code>{tokenHash, expiresAt, usedAt, userId}</code> — validate not used, not expired</td><td>—</td><td>—</td></tr>
+<tr><td>O7</td><td>Apply</td><td><span class="op-u">U</span> authTokens <code>{usedAt:now}</code> → <span class="op-u">U</span> users <code>{passwordHash:&lt;new&gt;, passwordUpdatedAt:now, failedLoginAttempts:0, lockedUntil:null}</code></td><td>—</td><td>—</td></tr>
+<tr><td>O8</td><td>Revoke all sessions</td><td><span class="op-r">R</span> sessions <code>{jwtId, refreshExpiresAt}</code> WHERE active → <span class="op-u">U</span> sessions <code>{revokedAt:now, revokedReason:"password_change"}</code></td><td>SET jwt:blocklist:&lt;jti&gt; for each active jti</td><td>—</td></tr>
+<tr><td>O9</td><td>Audit + optional auto-login</td><td><span class="op-w">W</span> auditLogs <code>{action:"user.password_reset", outcome:"success"}</code> → optionally <span class="op-w">W</span> sessions (fresh login)</td><td>—</td><td><em>Resend confirmation</em></td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'P', label:'P', name:'Email Change',
+    sub:'Verify new email, revoke other sessions on confirm',
+    isNew: true,
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>Ext</th></tr></thead>
+<tbody>
+<tr><td>P1</td><td class="ep">POST /v1/users/me/change-email</td><td><span class="op-r">R</span> users <code>{passwordHash, email, _id}</code> — verify current password</td><td>—</td></tr>
+<tr><td>P2</td><td>Dup check</td><td><span class="op-r">R</span> users <code>{emailNormalized}</code> WHERE = normalize(newEmail) → 409 if found</td><td>—</td></tr>
+<tr><td>P3</td><td>Token</td><td><span class="op-w">W</span> authTokens <code>{type:"email_change", tokenHash:"sha256:...", payload:{newEmail}, expiresAt:now+24h, usedAt:null, createdAt, ip}</code></td><td>—</td></tr>
+<tr><td>P4</td><td>Email to new address</td><td>—</td><td><em>Resend to newEmail — raw token in confirm link</em></td></tr>
+<tr><td>P5</td><td class="ep">GET /v1/auth/confirm-email-change?token=...</td><td><span class="op-r">R</span>+<span class="op-u">U</span> authTokens <code>{usedAt:now}</code> → <span class="op-u">U</span> users <code>{email:newEmail, emailNormalized:normalize(newEmail), updatedAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.email_changed", metadata:{oldEmail:masked, newEmail:masked}}</code></td><td>—</td></tr>
+<tr><td>P6</td><td>Revoke other sessions</td><td><span class="op-r">R</span> sessions WHERE <code>{userId, revokedAt:null, _id:{$ne:currentSession}}</code> → <span class="op-u">U</span> <code>{revokedAt:now, revokedReason:"email_changed"}</code></td><td>SET jwt:blocklist:&lt;jti&gt; for each revoked jti</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'Q', label:'Q', name:'SSO Cross-Product Login',
+    sub:'YoPM → YoSuite — single click, no password, 60s handoff token',
+    isNew: true,
+    content: `
+<div class="note-box">User is logged into YoPM. Clicks "Open in YoSuite". No password prompt.</div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>Redis</th></tr></thead>
+<tbody>
+<tr><td>Q1 — YoPM calls</td><td class="ep">POST /v1/auth/sso-handoff {targetProductId}</td><td><span class="op-r">R</span> sessions <code>{userId, productId, revokedAt, refreshExpiresAt}</code> — verify active session</td><td>—</td></tr>
+<tr><td>Q2 — Check target membership</td><td></td><td><span class="op-r">R</span> productUsers <code>{userId, productId:target, status}</code> — must be ACTIVE</td><td>—</td></tr>
+<tr><td>Q3 — Mint SSO token (60s)</td><td></td><td><span class="op-w">W</span> authTokens <code>{userId, productId:target, type:"sso_handoff", tokenHash:"sha256:...", expiresAt:now+60s, usedAt:null}</code></td><td>SETEX sso:handoff:&lt;tokenHash&gt; 60s {userId, targetProductId, sourceProductId}</td></tr>
+<tr><td>Q4 — Return redirect URL</td><td></td><td>—</td><td>—</td></tr>
+<tr><td>Q5 — YoSuite validates</td><td class="ep">POST /v1/auth/sso-validate {token}</td><td><span class="op-r">R</span>+<span class="op-u">U</span> authTokens <code>{usedAt:now}</code> (single-use)</td><td>DEL sso:handoff:&lt;tokenHash&gt;</td></tr>
+<tr><td>Q6 — Create session</td><td></td><td><span class="op-r">R</span> productUsers <code>{userId, productId:target, status}</code> → <span class="op-r">R</span> workspaceMembers <code>{userId, productId:target, workspaceId}</code> (primary workspace) → <span class="op-w">W</span> sessions <code>{userId, productId:target, workspaceId, refreshTokenHash, refreshTokenFamilyId:"rtf_new", jwtId:"jti_new", device, refreshExpiresAt:now+30d}</code> → <span class="op-w">W</span> auditLogs <code>{action:"user.sso_login", metadata:{sourceProductId, targetProductId}}</code></td><td>—</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'R', label:'R', name:'Plan Upgrade / Downgrade',
+    sub:'Same-currency change, proration via gateway, webhooks confirm',
+    isNew: true,
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>R1</td><td class="ep">POST /v1/billing/subscription/change-plan {newPlanId}</td><td><span class="op-r">R</span> subscriptions <code>{_id, status, gateway, gatewayRefs:{stripeSubscriptionId,items}, planId, quantity}</code> → <span class="op-r">R</span> billingPlans <code>{amount, currency, interval, gatewayPriceIds.stripe}</code> (old + new)</td><td>—</td></tr>
+<tr><td>R2</td><td>Business validate</td><td>— (same currency check; no downgrade to free mid-cycle)</td><td>—</td></tr>
+<tr><td>R3</td><td>Update on gateway</td><td>—</td><td><em>Stripe subscriptions.update({items:[{id:itemId, price:newPriceId}], proration_behavior:"create_prorations"}) → {current_period_end, latest_invoice:{id, amount_due}}</em></td></tr>
+<tr><td>R4</td><td>Confirm (webhook or sync)</td><td><span class="op-u">U</span> subscriptions <code>{planId:newPlanId, amount:newAmount, gatewayRefs.stripeLatestInvoiceId, updatedAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"subscription.plan_changed", metadata:{oldPlanId, newPlanId, proratedAmount}}</code></td><td>—</td></tr>
+<tr><td>R5</td><td>Cache invalidate</td><td>—</td><td>DEL cache:plans:&lt;productId&gt;</td></tr>
+</tbody>
+</table></div>`
+  },
+  {
+    id:'S', label:'S', name:'Seat Change (Seat-Based Plans)',
+    sub:'Validate min seats, prorate on Stripe, SSLCommerz deferred to renewal',
+    isNew: true,
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>S1</td><td class="ep">POST /v1/billing/subscription/change-quantity {quantity}</td><td><span class="op-r">R</span> subscriptions <code>{_id, status, gateway, gatewayRefs, quantity, planId, subjectWorkspaceId}</code> → <span class="op-r">R</span> billingPlans <code>{seatBased, perSeatAmount, includedSeats, limits.maxMembers}</code></td><td>—</td></tr>
+<tr><td>S2</td><td>Validate min qty</td><td>COUNT workspaceMembers <code>{workspaceId, status:"ACTIVE"}</code> — new qty must be ≥ active count</td><td>—</td></tr>
+<tr><td>S3</td><td>Update on gateway</td><td>—</td><td><em>Stripe subscriptions.update({items:[{id, quantity:newQty}], proration_behavior:"always_invoice"}) — immediate proration invoice</em></td></tr>
+<tr><td>S4</td><td>Persist</td><td><span class="op-u">U</span> subscriptions <code>{quantity:newQty, updatedAt}</code> → <span class="op-w">W</span> auditLogs <code>{action:"subscription.quantity_changed", metadata:{oldQty, newQty, perSeatAmount}}</code></td><td>—</td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>SSLCommerz:</strong> Does not support mid-cycle seat changes via gateway. <code>subscriptions.quantity</code> updated in DB only; charged at next renewal. Show this caveat in UI.</div>`
+  },
+  {
+    id:'T', label:'T', name:'Bundle Checkout',
+    sub:'Parent + per-component child subscriptions via one gateway checkout',
+    isNew: true,
+    content: `
+<div class="tbl-wrap"><table>
+<thead><tr><th>Step</th><th>Endpoint</th><th>DB — fields touched</th><th>External</th></tr></thead>
+<tbody>
+<tr><td>T1</td><td class="ep">POST /v1/billing/bundle-checkout {bundleId, subjects:{...}}</td><td><span class="op-r">R</span> bundles <code>{components, amount, currency, gatewayPriceIds, status}</code> → per component: <span class="op-r">R</span> billingPlans <code>{planId, limits, gatewayPriceIds}</code>, <span class="op-r">R</span> products <code>{billingScope, billingConfig}</code> → <span class="op-r">R</span> subscriptions (no-double-subscribe check per workspace) → <span class="op-r">R</span> paymentGateways <code>{credentialsEncrypted}</code></td><td>—</td></tr>
+<tr><td>T2</td><td>Create checkout</td><td>—</td><td><em>Stripe checkout.sessions.create({customer, line_items:[{price:bundles.gatewayPriceIds.stripe}], metadata:{bundleId, componentWorkspaceIds:JSON.stringify(subjects)}})</em></td></tr>
+<tr><td>T3</td><td>Webhook completed</td><td><strong>Parent:</strong> <span class="op-w">W</span> subscriptions <code>{isBundleParent:true, bundleId, productId:null, gateway:"stripe", gatewayRefs:{stripeSubscriptionId, stripeCustomerId}, status:"ACTIVE", amount, currency, createdAt}</code><br>
+<strong>Each component:</strong> <span class="op-w">W</span> subscriptions <code>{productId:component.productId, planId:component.planId, subjectWorkspaceId:subjects[productId], gateway:"stripe", gatewayRefs:{stripeCustomerId, stripeSubscriptionId}, bundleSubscriptionId:parentId, status:"ACTIVE", createdAt}</code><br>
+→ <span class="op-w">W</span> webhookDeliveries ×(per product) <code>{event:"subscription.activated"}</code> → <span class="op-w">W</span> auditLogs <code>{action:"bundle.subscription.created"}</code></td><td><em>Resend activation emails per product</em></td></tr>
+</tbody>
+</table></div>
+<div class="note-box warn"><strong>Cancel rule:</strong> Must cancel the <strong>parent</strong> bundle subscription → cron cascades to all children. Children cannot be canceled individually.</div>`
+  }
+];
+
+function renderFlows() {
+  const c = document.getElementById('flowsContainer');
+  FLOWS.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'flow-card' + (f.isNew ? ' flow-card-new' : '');
+    div.innerHTML = `
+      <div class="flow-header" onclick="toggleCard(this.closest('.flow-card'))">
+        <div class="flow-badge">${f.label}</div>
+        <div class="flow-info">
+          <div class="flow-name">${f.name}${f.isNew ? ' <span class="badge-new">NEW</span>' : ''}</div>
+          <div class="flow-sub">${f.sub}</div>
+        </div>
+        <div class="flow-chevron">▼</div>
+      </div>
+      <div class="flow-content">${f.content}</div>`;
+    c.appendChild(div);
+  });
+}
+
+// ─── Matrix Data ───────────────────────────────
+const MATRIX = {
+  headers: ['A','B','C','D','E','F','G','H','I','J','L','M','N','O','P','Q','R','S','T'],
+  rows: [
+    { name:'users',            ops:['RWU','—','—','—','—','RW','RW','RU','RU','R','—','RW','—','RU','RU','R','—','—','—'] },
+    { name:'sessions',         ops:['W','—','—','—','—','W','W','RWU','W','—','RU','W','—','RWU','RU','W','—','—','—'] },
+    { name:'authTokens',       ops:['—','—','—','—','—','RW','RW','—','—','—','—','—','—','RWU','RW','RWU','—','—','—'] },
+    { name:'products',         ops:['R','RW','RU','R','R','R','R','—','R','R','R','R','R','R','R','R','R','R','R'] },
+    { name:'productUsers',     ops:['—','—','—','—','—','W','W','—','RW','—','R','RW','—','—','—','R','—','—','—'] },
+    { name:'workspaces',       ops:['R','—','—','—','—','W','W','—','W','—','RW','R','RUD','—','—','—','—','—','—'] },
+    { name:'workspaceMembers', ops:['—','—','—','—','—','W','W','—','W','—','RW','RW','D','—','—','R','—','R','—'] },
+    { name:'roles',            ops:['—','W','—','—','—','R','R','—','R','—','R','R','D','—','—','—','—','—','—'] },
+    { name:'billingPlans',     ops:['—','—','—','RWU','—','—','R','—','—','R','R','R','—','—','—','—','R','R','R'] },
+    { name:'subscriptions',    ops:['R','—','—','—','—','—','RW','—','—','RWU','R','R','RUD','—','—','—','RU','RU','W'] },
+    { name:'paymentGateways',  ops:['—','—','RW','R','—','—','R','—','—','R','—','—','—','—','—','—','R','R','R'] },
+    { name:'invitations',      ops:['—','—','—','—','—','—','—','—','—','—','—','RWU','D','—','—','—','—','—','—'] },
+    { name:'webhookDeliveries',ops:['—','—','—','—','—','—','W','—','—','W','—','—','W','—','—','—','—','—','W'] },
+    { name:'auditLogs',        ops:['W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W','W'] },
+    { name:'bundles',          ops:['—','—','—','—','—','—','R','—','—','R','—','—','—','—','—','—','—','—','R'] },
+  ]
+};
+const OP_CLASS = { R:'matrix-r', W:'matrix-w', U:'matrix-u', D:'matrix-d', RW:'matrix-rw', RWU:'matrix-rwd', RUD:'matrix-rud', '—':'matrix-none' };
+
+function renderMatrix() {
+  const wrap = document.getElementById('matrixTable');
+  let h = '<table><thead><tr><th>Collection</th>';
+  MATRIX.headers.forEach(h2 => { h += `<th>${h2}</th>`; });
+  h += '</tr></thead><tbody>';
+  MATRIX.rows.forEach(r => {
+    h += `<tr><td class="coll-label">${r.name}</td>`;
+    r.ops.forEach(op => {
+      const cls = OP_CLASS[op] || 'matrix-none';
+      h += `<td class="${cls}" style="text-align:center;font-weight:700;font-size:12px">${op}</td>`;
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  wrap.innerHTML = h;
+}
+
+// ─── API Endpoints ─────────────────────────────
+const API_GROUPS = [
+  {
+    title: '6.1 Auth',
+    rows: [
+      ['POST','/v1/admin/bootstrap','public','users, auditLogs','Refuses if SUPER_ADMIN exists. One-time.'],
+      ['POST','/v1/auth/signup','product','users, productUsers, authTokens, auditLogs','Routes to Flow F or I. Idempotent on email.'],
+      ['GET','/v1/auth/verify-email','public','authTokens, users, sessions','Idempotent (reuse ok if already verified).'],
+      ['POST','/v1/auth/resend-verification','product','authTokens','Rate-limited.'],
+      ['POST','/v1/auth/signin','product / admin','users, sessions, auditLogs','Rate-limited + lockout.'],
+      ['POST','/v1/auth/refresh','(cookie)','sessions','Rotates token; family-reuse detection.'],
+      ['POST','/v1/auth/logout','user','sessions','Revokes current session.'],
+      ['POST','/v1/auth/logout-all','user','sessions','Revokes all sessions for user.'],
+      ['POST','/v1/auth/forgot-password','product','users, authTokens','Always 200 (no enumeration).'],
+      ['POST','/v1/auth/reset-password','public','authTokens, users, sessions','Revokes all sessions.'],
+      ['POST','/v1/auth/change-password','user','users, sessions','Revokes other sessions.'],
+      ['POST','/v1/auth/finalize-onboarding','user','users, productUsers, workspaces, workspaceMembers',''],
+      ['POST','/v1/auth/switch-workspace','user','workspaceMembers, sessions','Mints workspace-scoped JWT.'],
+      ['POST','/v1/auth/validate','product','sessions, productUsers','Cross-product SSO check.'],
+      ['POST','/v1/auth/sso-handoff','user','authTokens','60s one-shot token.'],
+    ]
+  },
+  {
+    title: '6.2 Users',
+    rows: [
+      ['GET','/v1/users/me','user','users, productUsers',''],
+      ['PATCH','/v1/users/me','user','users',''],
+      ['GET','/v1/users/me/sessions','user','sessions',''],
+      ['DELETE','/v1/users/me/sessions/:id','user','sessions',''],
+    ]
+  },
+  {
+    title: '6.3 Workspaces & Invitations',
+    rows: [
+      ['POST','/v1/workspaces','user','subscriptions, billingPlans, workspaces, workspaceMembers','Optional Idempotency-Key.'],
+      ['GET','/v1/workspaces','user','workspaces, workspaceMembers',''],
+      ['GET','/v1/workspaces/:id','user','workspaces, workspaceMembers',''],
+      ['PATCH','/v1/workspaces/:id','user (OWNER/ADMIN)','workspaces',''],
+      ['POST','/v1/workspaces/:id/invitations','user (OWNER/ADMIN)','invitations, workspaceMembers, billingPlans',''],
+      ['GET','/v1/workspaces/:id/members','user','workspaceMembers, users',''],
+      ['DELETE','/v1/workspaces/:id/members/:userId','user (OWNER/ADMIN)','workspaceMembers',''],
+      ['GET','/v1/invitations/preview','public (token)','invitations',''],
+      ['POST','/v1/invitations/accept','user','invitations, workspaceMembers, productUsers','One-shot.'],
+      ['POST','/v1/invitations/accept-new','public','invitations, users, workspaceMembers, productUsers, sessions','One-shot.'],
+      ['POST','/v1/invitations/:id/resend','user (OWNER/ADMIN)','invitations',''],
+      ['DELETE','/v1/invitations/:id','user (OWNER/ADMIN)','invitations',''],
+    ]
+  },
+  {
+    title: '6.4 Permissions',
+    rows: [
+      ['POST','/v1/permissions/check','product','workspaceMembers, roles','Redis-cached 60s.'],
+    ]
+  },
+  {
+    title: '6.5 Admin — Products & Billing',
+    rows: [
+      ['GET','/v1/admin/products','admin','products',''],
+      ['POST','/v1/admin/products','admin','products, roles, auditLogs',''],
+      ['PATCH','/v1/admin/products/:id','admin','products, auditLogs',''],
+      ['POST','/v1/admin/products/:id/rotate-secret','admin','products, auditLogs',''],
+      ['POST','/v1/admin/products/:id/gateways','admin','paymentGateways, auditLogs','Verifies credentials before saving.'],
+      ['GET','/v1/admin/products/:id/gateways','admin','paymentGateways',''],
+      ['DELETE','/v1/admin/products/:id/gateways/:gid','admin','paymentGateways, auditLogs',''],
+      ['PATCH','/v1/admin/products/:id/billing-config','admin','products, auditLogs',''],
+      ['GET','/v1/admin/products/:id/plans','admin','billingPlans',''],
+      ['POST','/v1/admin/products/:id/plans','admin','billingPlans, auditLogs',''],
+      ['POST','/v1/admin/plans/:id/publish','admin','billingPlans, auditLogs',''],
+      ['POST','/v1/admin/plans/:id/archive','admin','billingPlans, auditLogs',''],
+      ['GET','/v1/admin/bundles','admin','bundles',''],
+      ['POST','/v1/admin/bundles','admin','bundles, auditLogs',''],
+    ]
+  },
+  {
+    title: '6.6 Billing — User / Product',
+    rows: [
+      ['GET','/v1/billing/plans','product','billingPlans','Cached 5m.'],
+      ['POST','/v1/billing/checkout','user','billingPlans, paymentGateways, products, subscriptions','Idempotency-Key recommended.'],
+      ['GET','/v1/billing/subscription','user','subscriptions, billingPlans',''],
+      ['POST','/v1/billing/subscription/cancel','user','subscriptions','Routes through gateway adapter.'],
+      ['POST','/v1/billing/subscription/change-plan','user','subscriptions, billingPlans','Proration.'],
+      ['POST','/v1/billing/subscription/change-quantity','user','subscriptions','Seat-based.'],
+      ['GET','/v1/billing/invoices','user','(gateway)','Lists from gateway, not stored.'],
+      ['POST','/v1/billing/portal','user','(gateway)','Returns Stripe customer portal URL.'],
+    ]
+  },
+  {
+    title: '6.7 Webhooks (inbound)',
+    rows: [
+      ['POST','/v1/webhooks/stripe','gateway (HMAC)','webhookEventsProcessed, subscriptions, workspaces, webhookDeliveries, auditLogs','Unique on eventId.'],
+      ['POST','/v1/webhooks/sslcommerz','gateway (verify_sign + Order Validation)','same','Unique on tran_id.'],
+      ['POST','/v1/webhooks/paypal [POST-MVP]','gateway (cert)','same','Unique on event.id.'],
+      ['POST','/v1/webhooks/paddle [POST-MVP]','gateway (HMAC)','same','Unique on event_id.'],
+    ]
+  }
+];
+
+const AUTH_BADGE = {
+  'public': 'badge-public', 'product': 'badge-product', 'user': 'badge-user',
+  'admin': 'badge-admin', 'gateway (HMAC)': 'badge-gateway',
+  'gateway (verify_sign + Order Validation)': 'badge-gateway',
+  'gateway (cert)': 'badge-gateway', 'gateway (HMAC)': 'badge-gateway',
+  '(cookie)': 'badge-public', 'product / admin': 'badge-product',
+  'user (OWNER/ADMIN)': 'badge-user', 'public (token)': 'badge-public'
+};
+
+function renderAPI() {
+  const c = document.getElementById('apiContainer');
+  API_GROUPS.forEach(g => {
+    let h = `<div class="sub-title"><span class="icon">⚡</span>${g.title}</div>`;
+    h += `<div class="tbl-wrap"><table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Collections</th><th>Notes</th></tr></thead><tbody>`;
+    g.rows.forEach(r => {
+      const method = r[0];
+      const mc = method === 'POST' ? 'badge-blue' : method === 'GET' ? 'badge-green' : method === 'PATCH' ? 'badge-yellow' : 'badge-red';
+      const auth = r[2];
+      const authClass = AUTH_BADGE[auth] || 'badge-public';
+      const isPostMvp = r[1].includes('POST-MVP');
+      h += `<tr>
+        <td><span class="badge ${mc}">${method}</span></td>
+        <td class="ep">${r[1]}${isPostMvp ? ' <span class="badge badge-post" style="margin-left:4px">POST-MVP</span>' : ''}</td>
+        <td><span class="badge ${authClass}" style="font-size:10px">${auth}</span></td>
+        <td style="font-size:11.5px;color:#8b949e">${r[3]}</td>
+        <td style="font-size:11.5px;color:#484f58">${r[4]}</td>
+      </tr>`;
+    });
+    h += '</tbody></table></div>';
+    c.innerHTML += h;
+  });
+}
+
+// ─── Utility ───────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Init ──────────────────────────────────────
+renderCollections();
+renderFlows();
+renderMatrix();
+renderAPI();
+</script>
+</body>
+</html>
