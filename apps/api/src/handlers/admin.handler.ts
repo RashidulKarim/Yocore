@@ -22,6 +22,12 @@ import {
   updatePlanRequestSchema,
   updateProductRequestSchema,
   updateProductStatusRequestSchema,
+  createCouponRequestSchema,
+  refundRequestSchema,
+  createBundleRequestSchema,
+  updateBundleRequestSchema,
+  listBundlesQuerySchema,
+  grantBundleAccessRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { safeEqual } from '../lib/tokens.js';
@@ -53,6 +59,23 @@ export interface AdminHandlers {
   updatePlan: RequestHandler;
   publishPlan: RequestHandler;
   archivePlan: RequestHandler;
+  // Coupons (Flow AF — Phase 3.4 Wave 8)
+  createCoupon: RequestHandler;
+  listCoupons: RequestHandler;
+  disableCoupon: RequestHandler;
+  deleteCoupon: RequestHandler;
+  // Refund (Flow AD — Phase 3.4 Wave 9)
+  refundSubscription: RequestHandler;
+  // Bundles (Phase 3.5 — Flow AL)
+  createBundle: RequestHandler;
+  listBundles: RequestHandler;
+  getBundle: RequestHandler;
+  updateBundle: RequestHandler;
+  publishBundle: RequestHandler;
+  archiveBundle: RequestHandler;
+  deleteBundle: RequestHandler;
+  previewBundle: RequestHandler;
+  grantBundleAccess: RequestHandler;
 }
 
 export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
@@ -342,6 +365,204 @@ export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
         actor: { type: 'super_admin', id: auth.userId },
       });
       res.status(200).json(result);
+    }),
+
+    // ── Coupons (Wave 8) ──────────────────────────────────────────────
+    createCoupon: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const body = createCouponRequestSchema.parse(req.body);
+      const coupon = await ctx.coupon.createCoupon(
+        { userId: auth.userId },
+        productId || null,
+        body,
+      );
+      await req.audit?.({
+        action: 'coupon.created',
+        outcome: 'success',
+        productId: productId || null,
+        resource: { type: 'coupon', id: coupon.id },
+        metadata: { code: body.code, discountType: body.discountType, amount: body.amount },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(201).json({ coupon });
+    }),
+
+    listCoupons: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const coupons = await ctx.coupon.listCoupons(productId);
+      res.status(200).json({ coupons });
+    }),
+
+    disableCoupon: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const couponId = req.params['couponId'] ?? '';
+      const coupon = await ctx.coupon.disableCoupon(productId, couponId);
+      await req.audit?.({
+        action: 'coupon.disabled',
+        outcome: 'success',
+        productId,
+        resource: { type: 'coupon', id: couponId },
+        metadata: {},
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ coupon });
+    }),
+
+    deleteCoupon: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const couponId = req.params['couponId'] ?? '';
+      await ctx.coupon.deleteCoupon(productId, couponId);
+      await req.audit?.({
+        action: 'coupon.deleted',
+        outcome: 'success',
+        productId,
+        resource: { type: 'coupon', id: couponId },
+        metadata: {},
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(204).end();
+    }),
+
+    // ── Refund (Wave 9) ────────────────────────────────────────────────
+    refundSubscription: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const body = refundRequestSchema.parse(req.body);
+      const result = await ctx.refund.refund(productId, body, auth.userId);
+      await req.audit?.({
+        action: 'subscription.refunded',
+        outcome: 'success',
+        productId,
+        resource: { type: 'subscription', id: result.subscriptionId },
+        metadata: {
+          refundId: result.refundId,
+          amount: result.amount,
+          currency: result.currency,
+          reason: body.reason,
+          status: result.status,
+        },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json(result);
+    }),
+
+    // ── Bundles (Phase 3.5 — Flow AL) ───────────────────────────────────
+    createBundle: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const body = createBundleRequestSchema.parse(req.body);
+      const bundle = await ctx.bundle.create(body, { id: auth.userId });
+      await req.audit?.({
+        action: 'bundle.created',
+        outcome: 'success',
+        resource: { type: 'bundle', id: bundle.id },
+        metadata: { slug: bundle.slug, components: bundle.components.length },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(201).json({ bundle });
+    }),
+
+    listBundles: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const query = listBundlesQuerySchema.parse(req.query);
+      const bundles = await ctx.bundle.list(query);
+      res.status(200).json({ bundles });
+    }),
+
+    getBundle: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const bundle = await ctx.bundle.get(id);
+      res.status(200).json({ bundle });
+    }),
+
+    updateBundle: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const body = updateBundleRequestSchema.parse(req.body);
+      const bundle = await ctx.bundle.update(id, body, { id: auth.userId });
+      await req.audit?.({
+        action: 'bundle.updated',
+        outcome: 'success',
+        resource: { type: 'bundle', id: bundle.id },
+        metadata: { fieldsChanged: Object.keys(body) },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ bundle });
+    }),
+
+    publishBundle: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const bundle = await ctx.bundle.publish(id, { id: auth.userId });
+      await req.audit?.({
+        action: 'bundle.published',
+        outcome: 'success',
+        resource: { type: 'bundle', id: bundle.id },
+        metadata: { components: bundle.components.length },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ bundle });
+    }),
+
+    archiveBundle: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const bundle = await ctx.bundle.archive(id, { id: auth.userId });
+      await req.audit?.({
+        action: 'bundle.archived',
+        outcome: 'success',
+        resource: { type: 'bundle', id: bundle.id },
+        metadata: {},
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ bundle });
+    }),
+
+    deleteBundle: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const result = await ctx.bundle.hardDelete(id, { id: auth.userId });
+      await req.audit?.({
+        action: 'bundle.deleted',
+        outcome: 'success',
+        resource: { type: 'bundle', id },
+        metadata: {},
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json(result);
+    }),
+
+    previewBundle: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const report = await ctx.bundle.preview(id);
+      res.status(200).json(report);
+    }),
+
+    grantBundleAccess: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const body = grantBundleAccessRequestSchema.parse(req.body);
+      const bundle = await ctx.bundle.grantAccess(
+        id,
+        {
+          ...(body.userId !== undefined ? { userId: body.userId } : {}),
+          ...(body.workspaceId !== undefined ? { workspaceId: body.workspaceId } : {}),
+        },
+        { id: auth.userId },
+      );
+      await req.audit?.({
+        action: 'bundle.access_granted',
+        outcome: 'success',
+        resource: { type: 'bundle', id: bundle.id },
+        metadata: { userId: body.userId ?? null, workspaceId: body.workspaceId ?? null },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({ bundle });
     }),
   };
 }

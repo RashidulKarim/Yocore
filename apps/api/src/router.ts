@@ -92,6 +92,33 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.post('/v1/admin/products/:id/plans/:planId/publish', requireJwt, admin.publishPlan);
   router.post('/v1/admin/products/:id/plans/:planId/archive', requireJwt, admin.archivePlan);
 
+  // ── Coupons (Phase 3.4 Wave 8) ─────────────────────────────────────
+  router.post('/v1/admin/products/:id/coupons', requireJwt, admin.createCoupon);
+  router.get('/v1/admin/products/:id/coupons', requireJwt, admin.listCoupons);
+  router.post(
+    '/v1/admin/products/:id/coupons/:couponId/disable',
+    requireJwt,
+    admin.disableCoupon,
+  );
+  router.delete(
+    '/v1/admin/products/:id/coupons/:couponId',
+    requireJwt,
+    admin.deleteCoupon,
+  );
+  // ── Refund (Phase 3.4 Wave 9) ───────────────────────────────────────
+  router.post('/v1/admin/products/:id/refund', requireJwt, admin.refundSubscription);
+
+  // ── Bundles (Phase 3.5 — Flow AL) ───────────────────────────────────
+  router.post('/v1/admin/bundles', requireJwt, admin.createBundle);
+  router.get('/v1/admin/bundles', requireJwt, admin.listBundles);
+  router.get('/v1/admin/bundles/:id', requireJwt, admin.getBundle);
+  router.patch('/v1/admin/bundles/:id', requireJwt, admin.updateBundle);
+  router.post('/v1/admin/bundles/:id/publish', requireJwt, admin.publishBundle);
+  router.post('/v1/admin/bundles/:id/archive', requireJwt, admin.archiveBundle);
+  router.delete('/v1/admin/bundles/:id', requireJwt, admin.deleteBundle);
+  router.get('/v1/admin/bundles/:id/preview', requireJwt, admin.previewBundle);
+  router.post('/v1/admin/bundles/:id/grant-access', requireJwt, admin.grantBundleAccess);
+
   // ─── Public: Plans (no auth, cached 5min) ───────────────────────
   const publicPlans = publicPlansHandlerFactory(ctx);
   router.get('/v1/products/:slug/plans', publicPlans.listPublicPlans);
@@ -109,6 +136,32 @@ export function buildRouter(opts: BuildRouterOptions): Router {
     '/v1/billing/subscription/change-plan',
     requireJwt,
     billing.applyChangePlan,
+  );
+  // ── Wave 6: change seats ─────────────────────────────────────────────
+  router.post('/v1/billing/subscription/seats', requireJwt, billing.changeSeats);
+  // ── Wave 7: pause/resume ─────────────────────────────────────────────
+  router.post('/v1/billing/subscription/pause', requireJwt, billing.pauseSubscription);
+  router.post('/v1/billing/subscription/resume', requireJwt, billing.resumeSubscription);
+  // ── Wave 8: validate coupon (customer-facing) ───────────────────────
+  router.get('/v1/billing/coupons/validate', requireJwt, billing.validateCoupon);
+  // ── Wave 10: gateway migration ─────────────────────────────────────
+  router.post(
+    '/v1/billing/subscription/migrate-gateway',
+    requireJwt,
+    billing.gatewayMigrate,
+  );
+  // ── Wave 12: invoices ────────────────────────────────────────────────
+  router.get('/v1/billing/invoices', requireJwt, billing.listInvoices);
+  // ── Wave 13: tax profile ─────────────────────────────────────────────
+  router.get('/v1/billing/tax-profile', requireJwt, billing.getTaxProfile);
+  router.put('/v1/billing/tax-profile', requireJwt, billing.upsertTaxProfile);
+
+  // ── Bundle checkout + cancel (Phase 3.5 — Flow T / AK) ──────────────
+  router.post('/v1/billing/bundle-checkout', requireJwt, billing.bundleCheckout);
+  router.post(
+    '/v1/billing/bundles/:id/cancel',
+    requireJwt,
+    billing.cancelBundleSubscription,
   );
 
   // ─── Webhooks (Phase 3.4 Wave 2 — Flow J1.6 / Wave 3 — Flow J4.8) ─

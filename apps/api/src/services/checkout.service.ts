@@ -70,10 +70,18 @@ export interface CreateCheckoutContext {
   productId: string;
 }
 
+export interface CheckoutOverrides {
+  /** Force a specific target gateway (overrides product gateway routing). Used by gateway migration. */
+  forceGateway?: 'stripe' | 'sslcommerz' | 'paypal' | 'paddle';
+  /** Skip the single-active-subscription guard (caller is migrating an existing sub). */
+  skipActiveGuard?: boolean;
+}
+
 export interface CheckoutService {
   createCheckout(
     actor: CreateCheckoutContext,
     input: CheckoutRequest,
+    overrides?: CheckoutOverrides,
   ): Promise<CheckoutSessionResponse>;
 }
 
@@ -479,7 +487,7 @@ export function createCheckoutService(
   }
 
   return {
-    async createCheckout(actor, input) {
+    async createCheckout(actor, input, overrides) {
       // ── Load plan + product ────────────────────────────────────────
       const plan = await planRepo.findPlanById(actor.productId, input.planId);
       if (!plan) throw new AppError(ErrorCode.PLAN_NOT_FOUND, 'Plan not found');
@@ -539,22 +547,25 @@ export function createCheckoutService(
       }
 
       // ── Single-active subscription guard ───────────────────────────
-      const existing = await subscriptionRepo.findActiveBySubject({
-        productId: actor.productId,
-        subjectType,
-        subjectUserId,
-        subjectWorkspaceId,
-      });
-      if (existing) {
-        throw new AppError(
-          ErrorCode.RESOURCE_CONFLICT,
-          'An active subscription already exists for this subject',
-          { subscriptionId: existing._id },
-        );
+      if (!overrides?.skipActiveGuard) {
+        const existing = await subscriptionRepo.findActiveBySubject({
+          productId: actor.productId,
+          subjectType,
+          subjectUserId,
+          subjectWorkspaceId,
+        });
+        if (existing) {
+          throw new AppError(
+            ErrorCode.RESOURCE_CONFLICT,
+            'An active subscription already exists for this subject',
+            { subscriptionId: existing._id },
+          );
+        }
       }
 
       // ── Resolve gateway ────────────────────────────────────────────
-      const gateway = resolveGateway(product, plan.currency ?? 'usd');
+      const gateway =
+        overrides?.forceGateway ?? resolveGateway(product, plan.currency ?? 'usd');
 
       // Common helper: subject metadata propagated to gateway sessions.
       const subjectMeta: Record<string, string> = {

@@ -206,3 +206,69 @@ export async function suspendForTrialExpiry(
     },
   );
 }
+
+// ── Failed-payment hold lifecycle (Flow N — Phase 3.4 Wave 11) ────────
+
+/** Suspend a workspace because billing entered hard hold (Day 7). */
+export async function suspendForBillingHold(
+  productId: string,
+  workspaceId: string,
+  at: Date,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId, status: 'ACTIVE' },
+    {
+      $set: {
+        suspended: true,
+        suspensionDate: at,
+        suspensionReason: 'billing_hold',
+        status: 'SUSPENDED',
+      },
+    },
+  );
+}
+
+/** Mark suspension-warning email buckets (30d / 60d) as sent (idempotent). */
+export async function markSuspensionWarningSent(
+  productId: string,
+  workspaceId: string,
+  bucket: 30 | 60,
+): Promise<void> {
+  const field = bucket === 30 ? 'suspensionWarning30Sent' : 'suspensionWarning60Sent';
+  await Workspace.updateOne(
+    { productId, _id: workspaceId },
+    { $set: { [field]: true } },
+  );
+}
+
+/** Mark workspace data-deleted (Day 85 hard delete; sub already canceled). */
+export async function markDataDeleted(
+  productId: string,
+  workspaceId: string,
+  at: Date,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId },
+    { $set: { dataDeleted: true, dataDeletedAt: at } },
+  );
+}
+
+/** Unsuspend a workspace once payment is healthy again. */
+export async function clearBillingHold(
+  productId: string,
+  workspaceId: string,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId, suspensionReason: 'billing_hold' },
+    {
+      $set: {
+        status: 'ACTIVE',
+        suspended: false,
+        suspensionDate: null,
+        suspensionReason: null,
+        suspensionWarning30Sent: false,
+        suspensionWarning60Sent: false,
+      },
+    },
+  );
+}

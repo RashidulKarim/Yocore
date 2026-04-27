@@ -27,7 +27,9 @@ import * as planRepo from '../repos/billing-plan.repo.js';
 import * as subscriptionRepo from '../repos/subscription.repo.js';
 import * as dedupRepo from '../repos/webhook-event-processed.repo.js';
 import * as deliveryRepo from '../repos/webhook-delivery.repo.js';
+import type { InvoiceSyncService, StripeInvoicePayload } from './invoice-sync.service.js';
 import type { AuditEmitter } from '../middleware/audit-log.js';
+import type { BundleCheckoutService } from './bundle-checkout.service.js';
 
 // ── Minimal Stripe event shapes we depend on ────────────────────────────
 
@@ -82,6 +84,10 @@ export interface CreateStripeWebhookOptions {
   stripeApi?: StripeWebhookApi;
   /** Override clock for tests (passed to verifyWebhook). */
   now?: () => Date;
+  /** Optional invoice-sync service. When set, invoice.* events are mirrored to the `invoices` collection. */
+  invoiceSync?: InvoiceSyncService;
+  /** Optional bundle-checkout service for Phase 3.5 (Flow T) bundle webhook dispatch. */
+  bundleCheckout?: BundleCheckoutService;
 }
 
 // ── Default Stripe HTTP api ─────────────────────────────────────────────
@@ -130,6 +136,7 @@ export function createStripeWebhookService(
   opts: CreateStripeWebhookOptions = {},
 ): StripeWebhookService {
   const stripe = opts.stripeApi ?? defaultStripeWebhookApi;
+  const bundleCheckout = opts.bundleCheckout;
 
   async function loadGatewayForProduct(productId: string): Promise<{
     secretKey: string;
@@ -224,8 +231,37 @@ export function createStripeWebhookService(
             secretKey,
             audit,
           });
+          return { deduped: false, handled: event.type };        case 'invoice.paid':
+        case 'invoice.payment_succeeded':
+          await handleInvoicePaid({
+            event,
+            invoice: obj as unknown as StripeInvoicePayload & { subscription?: string },
+            productId,
+          });
           return { deduped: false, handled: event.type };
-        default:
+        case 'invoice.payment_failed':
+          await handleInvoicePaymentFailed({
+            event,
+            invoice: obj as unknown as StripeInvoicePayload & { subscription?: string },
+            productId,
+            audit,
+          });
+          return { deduped: false, handled: event.type };
+        case 'customer.subscription.updated':
+          await handleSubscriptionUpdated({
+            event,
+            sub: obj as unknown as StripeSubscription,
+            productId,
+          });
+          return { deduped: false, handled: event.type };
+        case 'customer.subscription.deleted':
+          await handleSubscriptionDeleted({
+            event,
+            sub: obj as unknown as StripeSubscription,
+            productId,
+            audit,
+          });
+          return { deduped: false, handled: event.type };        default:
           logger.info(
             { eventId: event.id, type: event.type },
             'stripe.webhook.unhandled_type',
@@ -259,6 +295,54 @@ export function createStripeWebhookService(
       );
     }
     const meta = session.metadata ?? {};
+
+    // ── Bundle checkout dispatch (Phase 3.5 — Flow T) ────────────────
+    if (meta['yocoreBundleId'] && bundleCheckout) {
+      if (!session.subscription) {
+        throw new AppError(
+          ErrorCode.WEBHOOK_PAYLOAD_INVALID,
+          'bundle checkout.session.completed missing subscription id',
+        );
+      }
+      const sub = await stripe.retrieveSubscription({
+        secretKey,
+        subscriptionId: session.subscription,
+      });
+      const item = sub.items?.data?.[0];
+      const amount = item?.price.unit_amount ?? 0;
+      const currency = (item?.price.currency ?? 'usd').toLowerCase();
+      const result = await bundleCheckout.handleBundleCheckoutCompleted({
+        eventId: event.id,
+        sessionId: session.id,
+        stripeCustomerId: session.customer,
+        stripeSubscriptionId: sub.id,
+        metadata: meta,
+        amount,
+        currency,
+        currentPeriodStart: sub.current_period_start
+          ? new Date(sub.current_period_start * 1000)
+          : null,
+        currentPeriodEnd: sub.current_period_end
+          ? new Date(sub.current_period_end * 1000)
+          : null,
+        trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+        status: mapStripeStatus(sub.status),
+      });
+      await audit?.({
+        action: 'bundle.subscription.created',
+        outcome: 'success',
+        resource: { type: 'subscription', id: result.parentId },
+        metadata: {
+          bundleId: meta['yocoreBundleId'],
+          stripeSubscriptionId: sub.id,
+          stripeEventId: event.id,
+          childIds: result.childIds,
+        },
+        actor: { type: 'webhook', id: 'stripe' },
+      });
+      return;
+    }
+
     const planId = meta['yocorePlanId'];
     const subjectType = meta['yocoreSubjectType'] as 'user' | 'workspace' | undefined;
     const subjectUserId = meta['yocoreUserId'] ?? null;
@@ -327,6 +411,155 @@ export function createStripeWebhookService(
         stripeEventId: event.id,
         planId,
       },
+      actor: { type: 'webhook', id: 'stripe' },
+    });
+  }
+
+  // ── invoice.paid / invoice.payment_succeeded ─────────────────────────
+  async function handleInvoicePaid(args: {
+    event: { id: string; type: string };
+    invoice: StripeInvoicePayload & { subscription?: string };
+    productId: string;
+  }): Promise<void> {
+    const { invoice, productId, event } = args;
+    if (opts.invoiceSync) {
+      await opts.invoiceSync.upsertFromStripeInvoice(productId, invoice);
+    }
+    if (invoice.subscription) {
+      const sub = await subscriptionRepo.findByStripeSubscriptionId(invoice.subscription);
+      if (sub && sub.productId === productId && sub.status === 'PAST_DUE') {
+        await subscriptionRepo.clearPaymentFailed({
+          subscriptionId: sub._id,
+          ...(invoice.period_end
+            ? { currentPeriodEnd: new Date(invoice.period_end * 1000) }
+            : {}),
+        });
+      }
+    }
+    const product = await productRepo.findProductById(productId);
+    if (product?.webhookUrl) {
+      await deliveryRepo
+        .enqueueDelivery({
+          productId,
+          event: 'invoice.paid',
+          eventId: `evt_inv_paid_${invoice.id}_${event.id}`,
+          url: product.webhookUrl,
+          payloadRef: invoice.id,
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  // ── invoice.payment_failed ───────────────────────────────────────────
+  async function handleInvoicePaymentFailed(args: {
+    event: { id: string; type: string };
+    invoice: StripeInvoicePayload & { subscription?: string };
+    productId: string;
+    audit?: AuditEmitter;
+  }): Promise<void> {
+    const { invoice, productId, event, audit } = args;
+    if (opts.invoiceSync) {
+      await opts.invoiceSync.upsertFromStripeInvoice(productId, invoice);
+    }
+    if (invoice.subscription) {
+      const sub = await subscriptionRepo.findByStripeSubscriptionId(invoice.subscription);
+      if (sub && sub.productId === productId) {
+        await subscriptionRepo.markPaymentFailed({
+          subscriptionId: sub._id,
+          failedAt: new Date(),
+        });
+        await audit?.({
+          action: 'subscription.payment_failed',
+          outcome: 'failure',
+          productId,
+          resource: { type: 'subscription', id: sub._id },
+          metadata: { stripeInvoiceId: invoice.id, stripeEventId: event.id },
+          actor: { type: 'webhook', id: 'stripe' },
+        });
+      }
+    }
+    const product = await productRepo.findProductById(productId);
+    if (product?.webhookUrl) {
+      await deliveryRepo
+        .enqueueDelivery({
+          productId,
+          event: 'invoice.payment_failed',
+          eventId: `evt_inv_failed_${invoice.id}_${event.id}`,
+          url: product.webhookUrl,
+          payloadRef: invoice.id,
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  // ── customer.subscription.updated ────────────────────────────────────
+  async function handleSubscriptionUpdated(args: {
+    event: { id: string; type: string };
+    sub: StripeSubscription;
+    productId: string;
+  }): Promise<void> {
+    const { sub, productId, event } = args;
+    const ours = await subscriptionRepo.findByStripeSubscriptionId(sub.id);
+    if (!ours || ours.productId !== productId) return;
+    const item = sub.items?.data?.[0];
+    const amount = item?.price.unit_amount ?? ours.amount ?? 0;
+    const currency = (item?.price.currency ?? ours.currency ?? 'usd').toLowerCase();
+    await subscriptionRepo.upsertFromStripeSession({
+      productId,
+      planId: ours.planId,
+      subjectType: ours.subjectType,
+      subjectUserId: ours.subjectUserId ?? null,
+      subjectWorkspaceId: ours.subjectWorkspaceId ?? null,
+      stripeCustomerId: sub.customer,
+      stripeSubscriptionId: sub.id,
+      stripeLatestInvoiceId: sub.latest_invoice ?? null,
+      status: mapStripeStatus(sub.status),
+      amount,
+      currency,
+      currentPeriodStart: sub.current_period_start
+        ? new Date(sub.current_period_start * 1000)
+        : null,
+      currentPeriodEnd: sub.current_period_end
+        ? new Date(sub.current_period_end * 1000)
+        : null,
+      lastWebhookEventId: event.id,
+    });
+  }
+
+  // ── customer.subscription.deleted ────────────────────────────────────
+  async function handleSubscriptionDeleted(args: {
+    event: { id: string; type: string };
+    sub: StripeSubscription;
+    productId: string;
+    audit?: AuditEmitter;
+  }): Promise<void> {
+    const { sub, productId, event, audit } = args;
+    const ours = await subscriptionRepo.findByStripeSubscriptionId(sub.id);
+    if (!ours || ours.productId !== productId) return;
+    await subscriptionRepo.cancelSubscription({
+      productId,
+      subscriptionId: ours._id,
+      reason: 'gateway_canceled',
+      at: new Date(),
+    });
+    const product = await productRepo.findProductById(productId);
+    if (product?.webhookUrl) {
+      await deliveryRepo
+        .enqueueDelivery({
+          productId,
+          event: 'subscription.canceled',
+          eventId: `evt_sub_canceled_${ours._id}_${event.id}`,
+          url: product.webhookUrl,
+          payloadRef: ours._id,
+        })
+        .catch(() => undefined);
+    }
+    await audit?.({
+      action: 'subscription.canceled',
+      outcome: 'success',
+      productId,
+      resource: { type: 'subscription', id: ours._id },
+      metadata: { stripeSubscriptionId: sub.id, stripeEventId: event.id },
       actor: { type: 'webhook', id: 'stripe' },
     });
   }

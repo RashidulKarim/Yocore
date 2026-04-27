@@ -325,3 +325,263 @@ export const changePlanResponseSchema = z.object({
   currency: z.string(),
 });
 export type ChangePlanResponse = z.infer<typeof changePlanResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 6 — Seat change (Flow S)
+// ──────────────────────────────────────────────────────────────────────
+
+export const changeSeatsRequestSchema = z
+  .object({
+    quantity: z.number().int().min(1).max(1000),
+    workspaceId: idSchema.optional(),
+  })
+  .strict();
+export type ChangeSeatsRequest = z.infer<typeof changeSeatsRequestSchema>;
+
+export const changeSeatsResponseSchema = z.object({
+  subscription: subscriptionSummarySchema,
+  scheduled: z.boolean(),
+  effectiveAt: z.string(),
+  prorationAmount: z.number().int(),
+  currency: z.string(),
+});
+export type ChangeSeatsResponse = z.infer<typeof changeSeatsResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 7 — Pause / Resume (Flow AC)
+// ──────────────────────────────────────────────────────────────────────
+
+export const pauseSubscriptionRequestSchema = z
+  .object({
+    workspaceId: idSchema.optional(),
+    resumeAt: z.string().datetime().optional(),
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
+export type PauseSubscriptionRequest = z.infer<typeof pauseSubscriptionRequestSchema>;
+
+export const resumeSubscriptionRequestSchema = z
+  .object({
+    workspaceId: idSchema.optional(),
+  })
+  .strict();
+export type ResumeSubscriptionRequest = z.infer<typeof resumeSubscriptionRequestSchema>;
+
+export const pauseResumeResponseSchema = z.object({
+  subscription: subscriptionSummarySchema,
+});
+export type PauseResumeResponse = z.infer<typeof pauseResumeResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 8 — Coupons (Flow AF)
+// ──────────────────────────────────────────────────────────────────────
+
+const couponCodeSchema = z
+  .string()
+  .min(3)
+  .max(64)
+  .regex(/^[A-Z0-9_-]+$/, 'Coupon code must be uppercase alphanumeric');
+const couponDurationSchema = z.enum(['once', 'repeating', 'forever']);
+const couponDiscountTypeSchema = z.enum(['percent', 'fixed']);
+
+export const createCouponRequestSchema = z
+  .object({
+    code: couponCodeSchema,
+    discountType: couponDiscountTypeSchema,
+    amount: z.number().int().min(1),
+    currency: currencySchema.optional(),
+    duration: couponDurationSchema.default('once'),
+    durationInMonths: z.number().int().min(1).max(36).optional(),
+    maxUses: z.number().int().min(1).optional(),
+    maxUsesPerCustomer: z.number().int().min(1).default(1),
+    planIds: z.array(idSchema).max(50).optional(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.discountType === 'percent' && v.amount > 100) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['amount'],
+        message: 'Percent discount cannot exceed 100',
+      });
+    }
+    if (v.discountType === 'fixed' && !v.currency) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['currency'],
+        message: 'Fixed-amount coupons require currency',
+      });
+    }
+    if (v.duration === 'repeating' && !v.durationInMonths) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['durationInMonths'],
+        message: 'Repeating duration requires durationInMonths',
+      });
+    }
+  });
+export type CreateCouponRequest = z.infer<typeof createCouponRequestSchema>;
+
+export const couponSummarySchema = z.object({
+  id: idSchema,
+  productId: idSchema.nullable(),
+  code: z.string(),
+  discountType: couponDiscountTypeSchema,
+  amount: z.number(),
+  currency: z.string().nullable(),
+  duration: couponDurationSchema,
+  durationInMonths: z.number().nullable(),
+  maxUses: z.number().nullable(),
+  usedCount: z.number(),
+  maxUsesPerCustomer: z.number(),
+  planIds: z.array(idSchema).nullable(),
+  expiresAt: z.string().nullable(),
+  status: z.enum(['ACTIVE', 'DISABLED', 'EXPIRED']),
+  createdAt: z.string(),
+});
+export type CouponSummary = z.infer<typeof couponSummarySchema>;
+
+export const validateCouponQuerySchema = z
+  .object({
+    code: couponCodeSchema,
+    planId: idSchema.optional(),
+  })
+  .strict();
+export type ValidateCouponQuery = z.infer<typeof validateCouponQuerySchema>;
+
+export const validateCouponResponseSchema = z.object({
+  valid: z.boolean(),
+  reason: z.string().nullable(),
+  coupon: couponSummarySchema.nullable(),
+  discountAmount: z.number().int().min(0).nullable(),
+});
+export type ValidateCouponResponse = z.infer<typeof validateCouponResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 9 — Refund (Flow AD — admin)
+// ──────────────────────────────────────────────────────────────────────
+
+export const refundRequestSchema = z
+  .object({
+    subscriptionId: idSchema,
+    amount: z.number().int().min(1).optional(),
+    reason: z.enum(['requested_by_customer', 'duplicate', 'fraudulent', 'other']).default(
+      'requested_by_customer',
+    ),
+    note: z.string().max(500).optional(),
+  })
+  .strict();
+export type RefundRequest = z.infer<typeof refundRequestSchema>;
+
+export const refundResponseSchema = z.object({
+  subscriptionId: idSchema,
+  refundId: z.string(),
+  amount: z.number().int(),
+  currency: z.string(),
+  status: z.enum(['succeeded', 'pending', 'failed']),
+});
+export type RefundResponse = z.infer<typeof refundResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 10 — Gateway migration (Flow AG)
+// ──────────────────────────────────────────────────────────────────────
+
+export const gatewayMigrateRequestSchema = z
+  .object({
+    workspaceId: idSchema.optional(),
+    targetGateway: z.enum(['stripe', 'sslcommerz']),
+    successUrl: z.string().url().max(2048),
+    cancelUrl: z.string().url().max(2048),
+  })
+  .strict();
+export type GatewayMigrateRequest = z.infer<typeof gatewayMigrateRequestSchema>;
+
+export const gatewayMigrateResponseSchema = z.object({
+  url: z.string().url(),
+  sessionId: z.string(),
+  targetGateway: z.enum(['stripe', 'sslcommerz']),
+  oldSubscriptionId: idSchema,
+});
+export type GatewayMigrateResponse = z.infer<typeof gatewayMigrateResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 12 — Invoices (B-10 cache + sync)
+// ──────────────────────────────────────────────────────────────────────
+
+export const invoiceSummarySchema = z.object({
+  id: idSchema,
+  productId: idSchema,
+  subscriptionId: idSchema,
+  gateway: z.enum(['stripe', 'sslcommerz', 'paypal', 'paddle']),
+  gatewayInvoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  status: z.enum(['draft', 'open', 'paid', 'void', 'uncollectible', 'refunded']),
+  amountSubtotal: z.number(),
+  amountTax: z.number(),
+  amountTotal: z.number(),
+  amountPaid: z.number(),
+  currency: z.string(),
+  periodStart: z.string().nullable(),
+  periodEnd: z.string().nullable(),
+  issuedAt: z.string(),
+  paidAt: z.string().nullable(),
+  downloadUrl: z.string().nullable(),
+});
+export type InvoiceSummary = z.infer<typeof invoiceSummarySchema>;
+
+export const listInvoicesQuerySchema = z
+  .object({
+    workspaceId: idSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(25),
+  })
+  .strict();
+export type ListInvoicesQuery = z.infer<typeof listInvoicesQuerySchema>;
+
+export const listInvoicesResponseSchema = z.object({
+  invoices: z.array(invoiceSummarySchema),
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 13 — Tax profile (YC-005)
+// ──────────────────────────────────────────────────────────────────────
+
+const taxIdTypeSchema = z
+  .string()
+  .min(2)
+  .max(32)
+  .regex(/^[a-z0-9_]+$/, 'taxIdType must be lowercase alphanumeric');
+
+export const upsertTaxProfileRequestSchema = z
+  .object({
+    workspaceId: idSchema.optional(),
+    taxIdType: taxIdTypeSchema,
+    taxIdValue: z.string().min(2).max(64),
+    billingName: z.string().max(200).optional(),
+    billingAddressLine1: z.string().max(200).optional(),
+    billingAddressLine2: z.string().max(200).optional(),
+    billingCity: z.string().max(100).optional(),
+    billingPostalCode: z.string().max(32).optional(),
+    billingState: z.string().max(100).optional(),
+    billingCountry: z.string().length(2).optional(),
+  })
+  .strict();
+export type UpsertTaxProfileRequest = z.infer<typeof upsertTaxProfileRequestSchema>;
+
+export const taxProfileSchema = z.object({
+  id: idSchema,
+  productId: idSchema,
+  userId: idSchema,
+  workspaceId: idSchema.nullable(),
+  taxIdType: z.string(),
+  taxIdValue: z.string(),
+  verificationStatus: z.enum(['unverified', 'pending', 'verified', 'invalid']),
+  billingName: z.string().nullable(),
+  billingAddressLine1: z.string().nullable(),
+  billingAddressLine2: z.string().nullable(),
+  billingCity: z.string().nullable(),
+  billingPostalCode: z.string().nullable(),
+  billingState: z.string().nullable(),
+  billingCountry: z.string().nullable(),
+});
+export type TaxProfile = z.infer<typeof taxProfileSchema>;

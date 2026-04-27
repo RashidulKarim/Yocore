@@ -224,21 +224,21 @@
 - [x] **Flow J (SSLCommerz)** — Two-step IPN flow + Stripe-as-billing-calendar
 - [x] **Flow G** — Trial flow + `billing.trial.tick` cron
 - [x] **Flow R / AE** — Plan upgrade/downgrade + preview + seat-overflow guard
-- [ ] **Flow S** — Seat change
-- [ ] **Flow AC** — Pause/resume
-- [ ] **Flow AF** — Coupon validation + redemption
-- [ ] **Flow AD** — Refund (admin)
-- [ ] **Flow AG** — Gateway migration
-- [ ] **Flow N** — Failed-payment grace lifecycle (`grace.tick`, `hold.warnings`, `deletion.tick`)
-- [ ] Invoice cache + sync (B-10)
-- [ ] Tax profile (YC-005) + Stripe Automatic Tax integration
+- [x] **Flow S** — Seat change
+- [x] **Flow AC** — Pause/resume
+- [x] **Flow AF** — Coupon validation + redemption
+- [x] **Flow AD** — Refund (admin)
+- [x] **Flow AG** — Gateway migration
+- [x] **Flow N** — Failed-payment grace lifecycle (`grace.tick` D+1/D+5/D+7)
+- [x] Invoice cache + sync (B-10)
+- [x] Tax profile (YC-005) + Stripe Automatic Tax integration
 
 ### 3.5 Bundles
-- [ ] **Flow AL** — Bundle CRUD + publish + archive (mandatory pre-publish validation)
-- [ ] **Flow T** — Bundle checkout w/ eligibility policy
-- [ ] **Flow AK** — Bundle cancel cascade cron
-- [ ] **Flow AM** — Component plan-swap (P1)
-- [ ] **Flow AN** — Standalone↔bundle migration (P1)
+- [x] **Flow AL** — Bundle CRUD + publish + archive (mandatory pre-publish validation V1–V8)
+- [x] **Flow T** — Bundle checkout w/ eligibility policy (block; cancel/replace deferred to v1.5)
+- [x] **Flow AK** — Bundle cancel cascade cron (`bundle.cancel.cascade`, daily, 7-day window)
+- [ ] **Flow AM** — Component plan-swap (P1 — deferred per system-design v1.0)
+- [ ] **Flow AN** — Standalone↔bundle migration (P1 — deferred per system-design v1.0)
 
 ### 3.6 GDPR, Sessions, Compliance
 - [ ] **Flow W** — Data export async worker → S3 → signed URL email (24h cooldown)
@@ -276,7 +276,7 @@
 - [ ] `src/schemas/users.ts`
 - [x] `src/schemas/workspaces.ts`
 - [x] `src/schemas/billing.ts`
-- [ ] `src/schemas/bundles.ts`
+- [x] `src/schemas/bundles.ts`
 - [ ] `src/schemas/admin.ts`
 - [ ] `src/schemas/webhooks.ts` (outbound payloads)
 - [ ] `src/constants/` (statuses, roles, intervals, limits)
@@ -370,6 +370,6 @@
 ## Tracking notes
 
 - **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout (Wave 5 plan change R/AE done; next: Wave 6 seat change S)
-- **Next milestone:** Flow S — Seat change (quantity update + proration)
+- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout COMPLETE (Waves 1–13)
+- **Next milestone:** Phase 3.5 — Bundles (Flow AL/T/AK)
 - **Last completed wave:** Phase 3.4 Wave 4 — Trial flow (Flow G) + `billing.trial.tick` cron with Mongo cron-lock store (121 integration tests green)

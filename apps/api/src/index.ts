@@ -34,8 +34,30 @@ async function bootstrap(): Promise<void> {
     lockTtlMs: 15 * 60 * 1000,
     handler: () => ctx.trial.runTrialTick().then(() => undefined),
   });
+  cron.register({
+    name: 'billing.grace.tick',
+    schedule: 'hourly',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 15 * 60 * 1000,
+    handler: () => ctx.grace.runGraceTick().then(() => undefined),
+  });
+  cron.register({
+    name: 'bundle.cancel.cascade',
+    schedule: 'daily',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 60 * 60 * 1000,
+    handler: () => ctx.bundleCascade.runBundleCancelCascade().then(() => undefined),
+  });
   const cronTimer = setInterval(() => {
     void cron.runOnce('billing.trial.tick');
+    void cron.runOnce('billing.grace.tick');
+    void cron.runOnce('bundle.cancel.cascade');
   }, 5 * 60 * 1000);
   cronTimer.unref();
 

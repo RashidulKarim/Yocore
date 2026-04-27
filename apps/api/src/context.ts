@@ -71,6 +71,46 @@ import {
   type ChangePlanService,
   type StripePlanApi,
 } from './services/change-plan.service.js';
+import {
+  createSeatChangeService,
+  type SeatChangeService,
+  type StripeSeatApi,
+} from './services/seat-change.service.js';
+import {
+  createPauseResumeService,
+  type PauseResumeService,
+  type StripePauseApi,
+} from './services/pause-resume.service.js';
+import {
+  createCouponService,
+  type CouponService,
+  type StripeCouponApi,
+} from './services/coupon.service.js';
+import {
+  createRefundService,
+  type RefundService,
+  type StripeRefundApi,
+} from './services/refund.service.js';
+import {
+  createGatewayMigrationService,
+  type GatewayMigrationService,
+  type StripeCancelApi,
+} from './services/gateway-migration.service.js';
+import {
+  createGraceService,
+  type GraceService,
+} from './services/grace.service.js';
+import {
+  createInvoiceSyncService,
+  type InvoiceSyncService,
+} from './services/invoice-sync.service.js';
+import {
+  createTaxProfileService,
+  type TaxProfileService,
+} from './services/tax-profile.service.js';
+import { createBundleService, type BundleService, type StripeBundlePriceApi } from './services/bundle.service.js';
+import { createBundleCheckoutService, type BundleCheckoutService } from './services/bundle-checkout.service.js';
+import { createBundleCascadeService, type BundleCascadeService } from './services/bundle-cascade.service.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -105,6 +145,17 @@ export interface AppContext {
   sslcommerzWebhook: SslcommerzWebhookService;
   trial: TrialService;
   changePlan: ChangePlanService;
+  seatChange: SeatChangeService;
+  pauseResume: PauseResumeService;
+  coupon: CouponService;
+  refund: RefundService;
+  gatewayMigration: GatewayMigrationService;
+  grace: GraceService;
+  invoiceSync: InvoiceSyncService;
+  taxProfile: TaxProfileService;
+  bundle: BundleService;
+  bundleCheckout: BundleCheckoutService;
+  bundleCascade: BundleCascadeService;
 }
 
 export interface CreateAppContextOptions {
@@ -128,6 +179,18 @@ export interface CreateAppContextOptions {
   webhookNow?: () => Date;
   /** Override Stripe plan-change API (tests). */
   stripePlanApi?: StripePlanApi;
+  /** Override Stripe seat API (tests). */
+  stripeSeatApi?: StripeSeatApi;
+  /** Override Stripe pause/resume API (tests). */
+  stripePauseApi?: StripePauseApi;
+  /** Override Stripe coupon API (tests). */
+  stripeCouponApi?: StripeCouponApi;
+  /** Override Stripe refund API (tests). */
+  stripeRefundApi?: StripeRefundApi;
+  /** Override Stripe cancel-at-period-end API (tests — used by gateway migration). */
+  stripeCancelApi?: StripeCancelApi;
+  /** Override Stripe bundle-price API (tests). */
+  stripeBundlePriceApi?: StripeBundlePriceApi;
 }
 
 export async function createAppContext(opts: CreateAppContextOptions = {}): Promise<AppContext> {
@@ -200,10 +263,9 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     ...(opts.stripeApi ? { stripeApi: opts.stripeApi } : {}),
     ...(opts.sslcommerzApi ? { sslcommerzApi: opts.sslcommerzApi } : {}),
   });
-  const stripeWebhook = createStripeWebhookService({
-    ...(opts.stripeWebhookApi ? { stripeApi: opts.stripeWebhookApi } : {}),
-    ...(opts.webhookNow ? { now: opts.webhookNow } : {}),
-  });
+  const invoiceSync = createInvoiceSyncService();
+  // stripeWebhook is created below (after bundleCheckout) so it can dispatch
+  // bundle checkout.session.completed events to the bundle handler.
   const sslcommerzWebhook = createSslcommerzWebhookService({
     ...(opts.sslcommerzApi ? { sslcommerzApi: opts.sslcommerzApi } : {}),
   });
@@ -214,7 +276,45 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
   const changePlan = createChangePlanService({
     ...(opts.stripePlanApi ? { stripePlanApi: opts.stripePlanApi } : {}),
   });
+  const seatChange = createSeatChangeService({
+    ...(opts.stripeSeatApi ? { stripeSeatApi: opts.stripeSeatApi } : {}),
+  });
+  const pauseResume = createPauseResumeService({
+    ...(opts.stripePauseApi ? { stripePauseApi: opts.stripePauseApi } : {}),
+  });
+  const coupon = createCouponService({
+    ...(opts.stripeCouponApi ? { stripeCouponApi: opts.stripeCouponApi } : {}),
+  });
+  const refund = createRefundService({
+    ...(opts.stripeRefundApi ? { stripeRefundApi: opts.stripeRefundApi } : {}),
+  });
+  const gatewayMigration = createGatewayMigrationService({
+    checkout,
+    ...(opts.stripeCancelApi ? { stripeCancelApi: opts.stripeCancelApi } : {}),
+  });
+  const grace = createGraceService({
+    auditStore,
+    defaultFromAddress: env.EMAIL_FROM_DEFAULT,
+  });
+  const taxProfile = createTaxProfileService();
 
+  const bundle = createBundleService({
+    ...(opts.stripeBundlePriceApi ? { stripeBundlePriceApi: opts.stripeBundlePriceApi } : {}),
+  });
+  const bundleCheckout = createBundleCheckoutService({
+    redis,
+    ...(opts.stripeApi ? { stripeApi: opts.stripeApi } : {}),
+  });
+  const bundleCascade = createBundleCascadeService({ auditStore });
+
+  // Re-create stripeWebhook now that bundleCheckout exists, so it can dispatch
+  // bundle checkout.session.completed events to the bundle handler.
+  const stripeWebhookWithBundle = createStripeWebhookService({
+    ...(opts.stripeWebhookApi ? { stripeApi: opts.stripeWebhookApi } : {}),
+    ...(opts.webhookNow ? { now: opts.webhookNow } : {}),
+    invoiceSync,
+    bundleCheckout,
+  });
   return {
     redis,
     keyring,
@@ -236,9 +336,20 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     gateway,
     plan,
     checkout,
-    stripeWebhook,
+    stripeWebhook: stripeWebhookWithBundle,
     sslcommerzWebhook,
     trial,
     changePlan,
+    seatChange,
+    pauseResume,
+    coupon,
+    refund,
+    gatewayMigration,
+    grace,
+    invoiceSync,
+    taxProfile,
+    bundle,
+    bundleCheckout,
+    bundleCascade,
   };
 }

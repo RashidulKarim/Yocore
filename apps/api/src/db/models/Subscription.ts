@@ -5,6 +5,8 @@ import { idDefault } from '../id.js';
 const subscriptionSchema = new Schema(
   {
     _id: { type: String, default: idDefault('sub') },
+    // Bundle parents have productId=bundleId (sentinel) and planId=bundleId
+    // (sentinel; never resolved as a plan). See §5.7.
     productId: { type: String, required: true },
     planId: { type: String, required: true },
 
@@ -71,6 +73,17 @@ const subscriptionSchema = new Schema(
 
     isBundleParent: { type: Boolean, default: false },
     bundleSubscriptionId: { type: String, default: null },
+    bundleId: { type: String, default: null },
+    bundleComponentMeta: {
+      type: new Schema(
+        {
+          gracePolicy: { type: String, default: 'bundle' },
+          originalStandaloneSubId: { type: String, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
 
     // Wave 5 — scheduled plan change (used for SSLCommerz next-renewal swaps
     // and for Flow AO grace-period auto-downgrades).
@@ -132,6 +145,7 @@ subscriptionSchema.index({ status: 1, renewalLinkExpiresAt: 1 }, { sparse: true 
 subscriptionSchema.index({ status: 1, resumeAt: 1 }, { sparse: true });
 subscriptionSchema.index({ isBundleParent: 1, status: 1 });
 subscriptionSchema.index({ bundleSubscriptionId: 1 }, { sparse: true });
+subscriptionSchema.index({ bundleId: 1, status: 1 }, { sparse: true });
 
 export type SubscriptionDoc = InferSchemaType<typeof subscriptionSchema> & { _id: string };
 export const Subscription: Model<SubscriptionDoc> = model<SubscriptionDoc>(

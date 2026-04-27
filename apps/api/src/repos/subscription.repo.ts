@@ -410,3 +410,419 @@ export async function setPendingPlanChange(args: {
     { new: true },
   ).lean<SubscriptionLean | null>();
 }
+
+// ── Seat change (Flow S — Phase 3.4 Wave 6) ───────────────────────────
+
+/** Update the `quantity` (seats) on a sub. Pushes a `seat_change` history
+ *  entry. Used for both immediate (Stripe/TRIAL) and scheduled paths. */
+export async function applySeatChange(args: {
+  productId: string;
+  subscriptionId: string;
+  newQuantity: number;
+  history: ChangeHistoryEntry;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: { quantity: args.newQuantity },
+      $push: { changeHistory: args.history },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Pause / Resume (Flow AC — Phase 3.4 Wave 7) ───────────────────────
+
+export async function pauseSubscription(args: {
+  productId: string;
+  subscriptionId: string;
+  pausedAt: Date;
+  resumeAt?: Date | null;
+  reason?: string | null;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId, status: { $in: ['ACTIVE', 'PAST_DUE'] } },
+    {
+      $set: {
+        status: 'PAUSED',
+        pausedAt: args.pausedAt,
+        resumeAt: args.resumeAt ?? null,
+        cancelReason: args.reason ?? null,
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+export async function resumeSubscription(args: {
+  productId: string;
+  subscriptionId: string;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId, status: 'PAUSED' },
+    {
+      $set: { status: 'ACTIVE', pausedAt: null, resumeAt: null },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Coupon attach (Flow AF — Phase 3.4 Wave 8) ────────────────────────
+
+export async function attachCoupon(args: {
+  productId: string;
+  subscriptionId: string;
+  couponId: string;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    { $set: { couponId: args.couponId } },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Refund (Flow AD — Phase 3.4 Wave 9) ───────────────────────────────
+
+export async function recordRefund(args: {
+  productId: string;
+  subscriptionId: string;
+  amount: number;
+  reason: string;
+  refundedAt: Date;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: {
+        refundedAt: args.refundedAt,
+        refundAmount: args.amount,
+        refundReason: args.reason,
+        refundPending: false,
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Failed payment grace lifecycle (Flow N — Phase 3.4 Wave 11) ───────
+
+/** Mark a sub PAST_DUE + paymentFailedAt; clears prior grace email flags
+ *  so a new failure cycle restarts the cadence. */
+export async function markPaymentFailed(args: {
+  subscriptionId: string;
+  failedAt: Date;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId },
+    {
+      $set: {
+        status: 'PAST_DUE',
+        paymentFailedAt: args.failedAt,
+        'graceEmailsSent.day1': false,
+        'graceEmailsSent.day5': false,
+        'graceEmailsSent.day7': false,
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Clear paymentFailedAt + status:ACTIVE on successful retry. */
+export async function clearPaymentFailed(args: {
+  subscriptionId: string;
+  currentPeriodEnd?: Date | null;
+}): Promise<SubscriptionLean | null> {
+  const set: Record<string, unknown> = {
+    status: 'ACTIVE',
+    paymentFailedAt: null,
+    'graceEmailsSent.day1': false,
+    'graceEmailsSent.day5': false,
+    'graceEmailsSent.day7': false,
+  };
+  if (args.currentPeriodEnd !== undefined) set['currentPeriodEnd'] = args.currentPeriodEnd;
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId },
+    { $set: set },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Cross-tenant: list PAST_DUE subs with paymentFailedAt set. Used by
+ *  `billing.grace.tick` cron. */
+export async function listPastDueOlderThan(
+  before: Date,
+  limit = 500,
+): Promise<SubscriptionLean[]> {
+  return Subscription.find({
+    status: 'PAST_DUE',
+    paymentFailedAt: { $lte: before, $ne: null },
+  })
+    .sort({ paymentFailedAt: 1 })
+    .limit(limit)
+    .lean<SubscriptionLean[]>();
+}
+
+/** Mark a single grace-email bucket as sent (idempotent). */
+export async function markGraceEmailSent(
+  subscriptionId: string,
+  bucket: 'day1' | 'day5' | 'day7',
+): Promise<void> {
+  await Subscription.updateOne(
+    { _id: subscriptionId },
+    { $set: { [`graceEmailsSent.${bucket}`]: true } },
+  );
+}
+
+/** Cancel a sub during grace finalization (Day 7 / hard cap). */
+export async function cancelForGrace(args: {
+  subscriptionId: string;
+  reason: string;
+  at: Date;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, status: 'PAST_DUE' },
+    {
+      $set: {
+        status: 'CANCELED',
+        canceledAt: args.at,
+        cancelReason: args.reason,
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Cancel any active sub for a subject (used by gateway migration). */
+export async function cancelSubscription(args: {
+  productId: string;
+  subscriptionId: string;
+  reason: string;
+  at: Date;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: {
+        status: 'CANCELED',
+        canceledAt: args.at,
+        cancelReason: args.reason,
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Bundle support (Phase 3.5 — Flow T / AK) ──────────────────────────
+
+export interface CreateBundleParentInput {
+  bundleId: string;
+  subjectType: 'user' | 'workspace';
+  subjectUserId?: string | null;
+  subjectWorkspaceId?: string | null;
+  gateway: GatewayName;
+  gatewayRefs: Record<string, unknown>;
+  status: SubscriptionStatus;
+  amount: number;
+  currency: string;
+  currentPeriodStart?: Date | null;
+  currentPeriodEnd?: Date | null;
+  trialStartsAt?: Date | null;
+  trialEndsAt?: Date | null;
+  lastWebhookEventId?: string | null;
+}
+
+/** Create a bundle PARENT subscription. Parents have:
+ *  - productId = bundleId (sentinel; bundles span products)
+ *  - planId = null
+ *  - isBundleParent = true
+ *  - bundleId set
+ *  See System-Design §5.7 step 4. */
+export async function createBundleParent(
+  input: CreateBundleParentInput,
+): Promise<SubscriptionLean> {
+  const doc = await Subscription.create({
+    productId: input.bundleId, // sentinel (bundles are global)
+    planId: input.bundleId, // sentinel — bundle parent has no plan
+    bundleId: input.bundleId,
+    isBundleParent: true,
+    subjectType: input.subjectType,
+    subjectUserId: input.subjectUserId ?? null,
+    subjectWorkspaceId: input.subjectWorkspaceId ?? null,
+    gateway: input.gateway,
+    gatewayRefs: input.gatewayRefs,
+    status: input.status,
+    amount: input.amount,
+    currency: input.currency.toLowerCase(),
+    currentPeriodStart: input.currentPeriodStart ?? null,
+    currentPeriodEnd: input.currentPeriodEnd ?? null,
+    trialStartsAt: input.trialStartsAt ?? null,
+    trialEndsAt: input.trialEndsAt ?? null,
+    lastWebhookEventId: input.lastWebhookEventId ?? null,
+    lastWebhookProcessedAt: input.lastWebhookEventId ? new Date() : null,
+  });
+  return doc.toObject() as SubscriptionLean;
+}
+
+export interface CreateBundleChildInput {
+  productId: string;
+  planId: string;
+  bundleSubscriptionId: string;
+  bundleId: string;
+  subjectType: 'user' | 'workspace';
+  subjectUserId?: string | null;
+  subjectWorkspaceId?: string | null;
+  status: SubscriptionStatus;
+  amount: number;
+  currency: string;
+  currentPeriodStart?: Date | null;
+  currentPeriodEnd?: Date | null;
+  trialStartsAt?: Date | null;
+  trialEndsAt?: Date | null;
+  originalStandaloneSubId?: string | null;
+}
+
+/** Create a bundle CHILD subscription (one per component product).
+ *  Children have:
+ *  - real productId + planId
+ *  - gateway = null (parent owns billing)
+ *  - bundleSubscriptionId = parent._id
+ *  - bundleComponentMeta.gracePolicy = 'bundle'
+ */
+export async function createBundleChild(
+  input: CreateBundleChildInput,
+): Promise<SubscriptionLean> {
+  const doc = await Subscription.create({
+    productId: input.productId,
+    planId: input.planId,
+    bundleSubscriptionId: input.bundleSubscriptionId,
+    bundleId: input.bundleId,
+    bundleComponentMeta: {
+      gracePolicy: 'bundle',
+      originalStandaloneSubId: input.originalStandaloneSubId ?? null,
+    },
+    subjectType: input.subjectType,
+    subjectUserId: input.subjectUserId ?? null,
+    subjectWorkspaceId: input.subjectWorkspaceId ?? null,
+    gateway: null,
+    gatewayRefs: {},
+    status: input.status,
+    amount: input.amount,
+    currency: input.currency.toLowerCase(),
+    currentPeriodStart: input.currentPeriodStart ?? null,
+    currentPeriodEnd: input.currentPeriodEnd ?? null,
+    trialStartsAt: input.trialStartsAt ?? null,
+    trialEndsAt: input.trialEndsAt ?? null,
+  });
+  return doc.toObject() as SubscriptionLean;
+}
+
+/** Find a bundle parent by id (cross-tenant lookup since bundles are global). */
+export async function findBundleParentById(
+  parentId: string,
+): Promise<SubscriptionLean | null> {
+  return Subscription.findOne({
+    _id: parentId,
+    isBundleParent: true,
+  }).lean<SubscriptionLean | null>();
+}
+
+/** List bundle children for a parent. */
+export async function listBundleChildren(
+  parentId: string,
+  opts: { excludeStatuses?: SubscriptionStatus[] } = {},
+): Promise<SubscriptionLean[]> {
+  const q: Record<string, unknown> = { bundleSubscriptionId: parentId };
+  if (opts.excludeStatuses && opts.excludeStatuses.length > 0) {
+    q['status'] = { $nin: opts.excludeStatuses };
+  }
+  return Subscription.find(q).lean<SubscriptionLean[]>();
+}
+
+/** List bundle parents that were canceled within the cascade window. */
+export async function listCanceledBundleParents(
+  sinceDate: Date,
+  limit = 500,
+): Promise<SubscriptionLean[]> {
+  return Subscription.find({
+    isBundleParent: true,
+    status: 'CANCELED',
+    canceledAt: { $gte: sinceDate, $ne: null },
+  })
+    .sort({ canceledAt: 1 })
+    .limit(limit)
+    .lean<SubscriptionLean[]>();
+}
+
+/** Mark a bundle PARENT canceled. Cross-tenant (parents have productId=bundleId). */
+export async function cancelBundleParent(args: {
+  subscriptionId: string;
+  reason: string;
+  at: Date;
+  cancelAtPeriodEnd?: boolean;
+}): Promise<SubscriptionLean | null> {
+  const set: Record<string, unknown> = {
+    cancelReason: args.reason,
+  };
+  if (args.cancelAtPeriodEnd) {
+    set['cancelAtPeriodEnd'] = true;
+  } else {
+    set['status'] = 'CANCELED';
+    set['canceledAt'] = args.at;
+  }
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, isBundleParent: true },
+    { $set: set },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Cancel a bundle CHILD (used by AK cascade cron). */
+export async function cancelBundleChild(args: {
+  childId: string;
+  reason: string;
+  at: Date;
+  changedBy: string;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.childId, bundleSubscriptionId: { $ne: null } },
+    {
+      $set: {
+        status: 'CANCELED',
+        canceledAt: args.at,
+        cancelReason: args.reason,
+      },
+      $push: {
+        changeHistory: {
+          changedAt: args.at,
+          changedBy: args.changedBy,
+          type: 'bundle_cascade_canceled',
+          reason: args.reason,
+        },
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Find an active subscription for this subject across ANY component product
+ *  in the bundle. Used by Flow T eligibility checks. */
+export async function findActiveSubsForSubjectsAcrossProducts(
+  subjects: Array<{ productId: string; subjectType: 'user' | 'workspace'; subjectUserId?: string; subjectWorkspaceId?: string }>,
+): Promise<SubscriptionLean[]> {
+  if (subjects.length === 0) return [];
+  const orClauses = subjects.map((s) => {
+    const clause: Record<string, unknown> = {
+      productId: s.productId,
+      status: { $in: ['TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED'] },
+    };
+    if (s.subjectType === 'workspace' && s.subjectWorkspaceId) {
+      clause['subjectType'] = 'workspace';
+      clause['subjectWorkspaceId'] = s.subjectWorkspaceId;
+    } else if (s.subjectType === 'user' && s.subjectUserId) {
+      clause['subjectType'] = 'user';
+      clause['subjectUserId'] = s.subjectUserId;
+    }
+    return clause;
+  });
+  return Subscription.find({ $or: orClauses }).lean<SubscriptionLean[]>();
+}
