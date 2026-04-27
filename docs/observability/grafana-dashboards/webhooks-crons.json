@@ -1,0 +1,59 @@
+{
+  "title": "YoCore — Webhooks & Crons",
+  "uid": "yocore-webhooks-crons",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["yocore", "webhooks", "cron"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "title": "Outbound webhook delivery latency p95 / p99",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(yocore_webhook_delivery_duration_seconds_bucket[5m])) by (le, outcome))",
+          "legendFormat": "p95 {{outcome}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(yocore_webhook_delivery_duration_seconds_bucket[5m])) by (le, outcome))",
+          "legendFormat": "p99 {{outcome}}"
+        }
+      ]
+    },
+    {
+      "title": "Webhook DEAD count (alert if > 0)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(increase(yocore_webhook_delivery_total{status=\"dead\"}[1h]))" }]
+    },
+    {
+      "title": "Cron last successful run (sec ago)",
+      "type": "table",
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "time() - yocore_cron_last_run_timestamp_seconds" }]
+    },
+    {
+      "title": "Cron run rate by outcome",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(yocore_cron_run_total[1h])) by (job, outcome)",
+          "legendFormat": "{{job}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "title": "Circuit breaker reject count by provider",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(yocore_circuit_rejects_total[5m])) by (name)",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    }
+  ]
+}

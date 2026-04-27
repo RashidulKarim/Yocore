@@ -8,6 +8,7 @@
  */
 import type { Logger } from 'pino';
 import { logger as defaultLogger } from './logger.js';
+import { cronRunTotal, cronFailureTotal, cronLastRunTimestamp } from './metrics.js';
 
 export interface CronLockStore {
   /**
@@ -61,6 +62,7 @@ export class CronRunner {
     const acquired = await this.store.acquire(name, dateKey, job.lockTtlMs);
     if (!acquired) {
       this.log.debug({ event: 'cron.skipped', job: name, dateKey }, 'cron lock not acquired');
+      cronRunTotal.labels(name, 'skipped').inc();
       return false;
     }
     const startedAt = Date.now();
@@ -70,9 +72,13 @@ export class CronRunner {
         { event: 'cron.ran', job: name, dateKey, durationMs: Date.now() - startedAt },
         'cron ran',
       );
+      cronRunTotal.labels(name, 'ran').inc();
+      cronLastRunTimestamp.labels(name).set(Date.now() / 1000);
       return true;
     } catch (err) {
       this.log.error({ event: 'cron.failed', job: name, dateKey, err }, 'cron handler failed');
+      cronRunTotal.labels(name, 'failed').inc();
+      cronFailureTotal.labels(name).inc();
       return false;
     } finally {
       await this.store.release(name, dateKey).catch(() => undefined);

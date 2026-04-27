@@ -19,6 +19,8 @@ import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { superAdminIpAllowlistMiddleware } from './middleware/super-admin-ip.js';
+import { metricsMiddleware } from './middleware/metrics.js';
+import { register, startDefaultMetrics } from './lib/metrics.js';
 import { buildRouter } from './router.js';
 import type { AppContext } from './context.js';
 
@@ -39,6 +41,20 @@ export function createApp(opts: CreateAppOptions): Express {
 
   app.use(correlationIdMiddleware);
   app.use(securityHeadersMiddleware());
+  app.use(metricsMiddleware());
+
+  // /metrics is intentionally OUTSIDE the IP allowlist so an internal
+  // Prometheus scraper can hit it without a JWT. Operators MUST gate the
+  // route at the load-balancer level (private listener / VPC SG).
+  startDefaultMetrics();
+  app.get('/metrics', async (_req, res) => {
+    try {
+      res.setHeader('content-type', register.contentType);
+      res.end(await register.metrics());
+    } catch (err) {
+      res.status(500).end(err instanceof Error ? err.message : 'metrics error');
+    }
+  });
   app.use(
     corsMiddleware({
       globalAllowOrigins: opts.globalAllowOrigins ?? [],

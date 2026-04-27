@@ -4,6 +4,8 @@ import { connectMongo, disconnectMongo } from './config/db.js';
 import { getRedis, disconnectRedis } from './config/redis.js';
 import { destroyAwsClients } from './config/aws.js';
 import { logger } from './lib/logger.js';
+import { startOtel } from './lib/otel.js';
+import { initSentry, captureException } from './lib/sentry.js';
 import { createAppContext } from './context.js';
 import { CronRunner } from './lib/cron-runner.js';
 import { createMongoCronLockStore } from './repos/cron-lock.repo.js';
@@ -11,6 +13,11 @@ import { processBatch, consoleDriver, createSmtpDriver, type EmailDriver } from 
 import os from 'node:os';
 
 async function bootstrap(): Promise<void> {
+  // Observability MUST come first so auto-instrumentation patches before
+  // mongoose/express/ioredis are imported via the chain below.
+  await startOtel();
+  await initSentry();
+
   await connectMongo();
   // Touch redis to fail fast if misconfigured
   getRedis();
@@ -79,12 +86,53 @@ async function bootstrap(): Promise<void> {
     lockTtlMs: 60 * 60 * 1000,
     handler: () => ctx.gdprDeletion.runDeletionTick().then(() => undefined),
   });
+  cron.register({
+    name: 'gdpr.dataExport.tick',
+    schedule: 'every-5-min',
+    dateKey: () => {
+      const d = new Date();
+      // 5-minute buckets so each bucket runs at most once cluster-wide.
+      const bucket = Math.floor(d.getUTCMinutes() / 5) * 5;
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}:${String(bucket).padStart(2, '0')}`;
+    },
+    lockTtlMs: 5 * 60 * 1000,
+    handler: () => ctx.dataExport.runExportTick().then(() => undefined),
+  });
+  cron.register({
+    name: 'email.deliverability.review',
+    schedule: 'daily-03-utc',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 60 * 60 * 1000,
+    handler: () => ctx.emailDeliverability.runReviewTick().then(() => undefined),
+  });
+  cron.register({
+    name: 'webhook.archive.tick',
+    schedule: 'daily-04-utc',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 60 * 60 * 1000,
+    handler: () => ctx.webhookArchive.runArchiveTick().then(() => undefined),
+  });
   const cronTimer = setInterval(() => {
     void cron.runOnce('billing.trial.tick');
     void cron.runOnce('billing.grace.tick');
     void cron.runOnce('bundle.cancel.cascade');
     void cron.runOnce('jwt.key.retire');
     void cron.runOnce('gdpr.deletion.tick');
+    void cron.runOnce('gdpr.dataExport.tick');
+    // Daily 03:00 UTC review — runOnce is cheap; cronLock dedupe guarantees once-per-day.
+    if (new Date().getUTCHours() === 3) {
+      void cron.runOnce('email.deliverability.review');
+    }
+    // Daily 04:00 UTC archival sweep.
+    if (new Date().getUTCHours() === 4) {
+      void cron.runOnce('webhook.archive.tick');
+    }
   }, 5 * 60 * 1000);
   cronTimer.unref();
 
@@ -144,9 +192,11 @@ async function bootstrap(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('unhandledRejection', (reason) => {
     logger.error({ event: 'unhandledRejection', reason }, 'Unhandled promise rejection');
+    void captureException(reason, { type: 'unhandledRejection' });
   });
   process.on('uncaughtException', (err) => {
     logger.fatal({ event: 'uncaughtException', err }, 'Uncaught exception — exiting');
+    void captureException(err, { type: 'uncaughtException' });
     void shutdown('uncaughtException').finally(() => process.exit(1));
   });
 }

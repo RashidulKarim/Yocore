@@ -19,6 +19,8 @@ import {
   listInvoicesQuerySchema,
   upsertTaxProfileRequestSchema,
   bundleCheckoutRequestSchema,
+  migrateToBundleRequestSchema,
+  downgradeToStandaloneRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { requireAuth } from '../middleware/jwt-auth.js';
@@ -45,6 +47,8 @@ export interface BillingHandlers {
   upsertTaxProfile: RequestHandler;
   bundleCheckout: RequestHandler;
   cancelBundleSubscription: RequestHandler;
+  migrateToBundle: RequestHandler;
+  downgradeToStandalone: RequestHandler;
 }
 
 export function billingHandlerFactory(ctx: AppContext): BillingHandlers {
@@ -431,6 +435,59 @@ export function billingHandlerFactory(ctx: AppContext): BillingHandlers {
         metadata: { status: result.status, cascadeScheduled: result.cascadeScheduled },
       });
       res.status(200).json(result);
+    }),
+
+    // ── V1.1-B Flow AN — Path A (standalone → bundle migration) ─────────
+    migrateToBundle: asyncHandler(async (req, res) => {
+      const auth = requireAuth(req);
+      const body = migrateToBundleRequestSchema.parse(req.body);
+      const user = await userRepo.findUserById(auth.userId);
+      const result = await ctx.bundleMigration.migrateToBundle({
+        userId: auth.userId,
+        email: user?.email ?? null,
+        bundleId: body.bundleId,
+        currency: body.currency,
+      });
+      await req.audit?.({
+        action: 'subscription.migrated_to_bundle',
+        outcome: 'success',
+        resource: { type: 'bundle', id: body.bundleId },
+        metadata: {
+          canceledStandaloneSubs: result.canceledStandaloneSubs,
+          creditBalance: result.creditBalance,
+        },
+      });
+      res.status(200).json(result);
+    }),
+
+    // ── V1.1-B Flow AN — Path B (bundle → standalone downgrade) ──────────
+    downgradeToStandalone: asyncHandler(async (req, res) => {
+      const auth = requireAuth(req);
+      const id = req.params['id'] ?? '';
+      const body = downgradeToStandaloneRequestSchema.parse(req.body);
+      const result = await ctx.bundleMigration.downgradeToStandalone({
+        userId: auth.userId,
+        bundleParentSubscriptionId: id,
+        keepComponents: body.keepComponents,
+        targetPlans: body.targetPlans,
+      });
+      await req.audit?.({
+        action: 'subscription.migrated_to_standalone',
+        outcome: 'success',
+        resource: { type: 'subscription', id },
+        metadata: {
+          keptComponents: result.keptComponents.map((k) => ({
+            productId: k.productId,
+            targetPlanId: k.targetPlanId,
+            childSubId: k.childSubId,
+          })),
+          droppedComponents: result.droppedComponents,
+        },
+      });
+      res.status(200).json({
+        ...result,
+        cancelAtPeriodEnd: result.cancelAtPeriodEnd ? result.cancelAtPeriodEnd.toISOString() : null,
+      });
     }),
   };
 }

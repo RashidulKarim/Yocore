@@ -153,6 +153,14 @@ export function ProductDetail() {
       </div>
 
       <div className="card space-y-3">
+        <h2 className="font-medium">Operations</h2>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/products/${id}/users`} className="btn-secondary">View users</Link>
+          <Link to={`/products/${id}/workspaces`} className="btn-secondary">View workspaces</Link>
+        </div>
+      </div>
+
+      <div className="card space-y-3">
         <h2 className="font-medium">Secrets</h2>
         <div className="flex gap-2">
           <Button variant="secondary" loading={rotateApi.isPending} onClick={() => rotateApi.mutate()}>Rotate API secret</Button>

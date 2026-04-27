@@ -2,13 +2,16 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, getAdminToken, setAdminToken } from '../lib/api.js';
-import { LayoutDashboard, Box, FileText, Cog, ScrollText, Webhook, Receipt } from 'lucide-react';
+import { LayoutDashboard, Box, FileText, Cog, ScrollText, Webhook, Receipt, Package, Users, Megaphone } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/products', label: 'Products', icon: Box },
+  { to: '/users', label: 'All users (search)', icon: Users },
   { to: '/plans', label: 'Plans', icon: Receipt },
+  { to: '/bundles', label: 'Bundles', icon: Package },
   { to: '/subscriptions', label: 'Subscriptions', icon: FileText },
+  { to: '/announcements', label: 'Announcements', icon: Megaphone },
   { to: '/webhooks', label: 'Webhook deliveries', icon: Webhook },
   { to: '/tos', label: 'ToS / Privacy', icon: ScrollText },
   { to: '/settings', label: 'Super Admin', icon: Cog },

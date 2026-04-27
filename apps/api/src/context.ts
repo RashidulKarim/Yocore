@@ -116,6 +116,10 @@ import {
   type WebhookDeliveryService,
   type DeliveryHttpClient,
 } from './services/webhook-delivery.service.js';
+import {
+  createWebhookArchiveService,
+  type WebhookArchiveService,
+} from './services/webhook-archive.service.js';
 import { createAdminOpsService, type AdminOpsService } from './services/admin-ops.service.js';
 import {
   createJwtRotationService,
@@ -126,6 +130,18 @@ import {
   createSelfDeletionService,
   type SelfDeletionService,
 } from './services/self-deletion.service.js';
+import {
+  createDataExportService,
+  type DataExportService,
+} from './services/data-export.service.js';
+import {
+  createEmailDeliverabilityService,
+  type EmailDeliverabilityService,
+} from './services/email-deliverability.service.js';
+import {
+  createBundleMigrationService,
+  type BundleMigrationService,
+} from './services/bundle-migration.service.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -172,9 +188,13 @@ export interface AppContext {
   bundleCheckout: BundleCheckoutService;
   bundleCascade: BundleCascadeService;
   webhookDelivery: WebhookDeliveryService;
+  webhookArchive: WebhookArchiveService;
   adminOps: AdminOpsService;
   jwtRotation: JwtRotationService;
   gdprDeletion: SelfDeletionService;
+  dataExport: DataExportService;
+  emailDeliverability: EmailDeliverabilityService;
+  bundleMigration: BundleMigrationService;
 }
 
 export interface CreateAppContextOptions {
@@ -397,8 +417,16 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     bundleCheckout,
     bundleCascade,
     webhookDelivery,
+    webhookArchive: createWebhookArchiveService(),
     adminOps,
     jwtRotation,
     gdprDeletion: createSelfDeletionService(),
+    dataExport: createDataExportService({
+      signingSecret: env.EMAIL_UNSUBSCRIBE_SECRET,
+      defaultFromAddress: env.EMAIL_FROM_DEFAULT,
+      publicBaseUrl: env.PUBLIC_API_BASE_URL,
+    }),
+    emailDeliverability: createEmailDeliverabilityService({ auditStore }),
+    bundleMigration: createBundleMigrationService({ bundleCheckout }),
   };
 }

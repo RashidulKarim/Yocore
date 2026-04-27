@@ -21,6 +21,7 @@
  */
 import { logger } from '../lib/logger.js';
 import { signWebhook } from '../lib/webhook-signature.js';
+import { webhookDeliveryTotal, webhookDeliveryDuration } from '../lib/metrics.js';
 import * as deliveryRepo from '../repos/webhook-delivery.repo.js';
 import * as productRepo from '../repos/product.repo.js';
 
@@ -206,13 +207,17 @@ export function createWebhookDeliveryService(
       const row = await deliveryRepo.claimDueDelivery({ now: t, lockTtlMs });
       if (!row) break;
       out.attempted++;
+      const startMs = Date.now();
       try {
         const result = await processOne(row, t);
         out[result]++;
+        webhookDeliveryTotal.labels(result).inc();
+        webhookDeliveryDuration.labels(result).observe((Date.now() - startMs) / 1000);
       } catch (e) {
         // Defensive: never crash the whole batch — release lock + mark for retry.
         const msg = e instanceof Error ? e.message : String(e);
         out.skipped++;
+        webhookDeliveryTotal.labels('skipped').inc();
         logger.error({ id: row._id, err: e }, 'webhook delivery: unexpected processOne error');
         await scheduleRetryOrDead(row, t, null, 0, `worker error: ${msg}`).catch(() => undefined);
       }

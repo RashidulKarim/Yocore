@@ -7,6 +7,8 @@ import {
 import { adminHandlerFactory } from './handlers/admin.handler.js';
 import { adminOpsHandlerFactory } from './handlers/admin-ops.handler.js';
 import { meHandlerFactory } from './handlers/me.handler.js';
+import { entitlementsHandlerFactory } from './handlers/entitlements.handler.js';
+import { adminListingsHandlerFactory } from './handlers/admin-listings.handler.js';
 import { authHandlerFactory } from './handlers/auth.handler.js';
 import { workspaceHandlerFactory } from './handlers/workspace.handler.js';
 import { publicPlansHandlerFactory } from './handlers/public-plans.handler.js';
@@ -149,6 +151,8 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.delete('/v1/admin/bundles/:id', requireJwt, admin.deleteBundle);
   router.get('/v1/admin/bundles/:id/preview', requireJwt, admin.previewBundle);
   router.post('/v1/admin/bundles/:id/grant-access', requireJwt, admin.grantBundleAccess);
+  // V1.1-B Flow AM
+  router.post('/v1/admin/bundles/:id/swap-component', requireJwt, admin.swapBundleComponent);
 
   // ─── Public: Plans (no auth, cached 5min) ───────────────────────
   const publicPlans = publicPlansHandlerFactory(ctx);
@@ -193,6 +197,18 @@ export function buildRouter(opts: BuildRouterOptions): Router {
     '/v1/billing/bundles/:id/cancel',
     requireJwt,
     billing.cancelBundleSubscription,
+  );
+  // V1.1-B Flow AN — Path A (standalone → bundle)
+  router.post(
+    '/v1/billing/subscription/migrate-to-bundle',
+    requireJwt,
+    billing.migrateToBundle,
+  );
+  // V1.1-B Flow AN — Path B (bundle → standalone)
+  router.post(
+    '/v1/billing/bundles/:id/downgrade-to-standalone',
+    requireJwt,
+    billing.downgradeToStandalone,
   );
 
   // ─── Webhooks (Phase 3.4 Wave 2 — Flow J1.6 / Wave 3 — Flow J4.8) ─
@@ -260,6 +276,65 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   );
   router.post('/v1/admin/tos', requireJwt, adminOps.publishTosVersion);
   router.get('/v1/admin/tos', requireJwt, adminOps.listTosVersions);
+  // V1.1-A: deliverability manual reset
+  router.post(
+    '/v1/admin/users/:id/email-deliverability/reset',
+    requireJwt,
+    adminOps.resetEmailDeliverability,
+  );
+  // V1.1-C admin: trial / grace extension + audit-log export
+  router.post(
+    '/v1/admin/products/:productId/subscriptions/:id/extend-trial',
+    requireJwt,
+    adminOps.extendTrial,
+  );
+  router.post(
+    '/v1/admin/products/:productId/subscriptions/:id/extend-grace',
+    requireJwt,
+    adminOps.extendGrace,
+  );
+  router.get('/v1/admin/audit-log/export', requireJwt, adminOps.exportAuditLog);
+
+  // V1.1-D admin listings + announcements
+  const adminList = adminListingsHandlerFactory();
+  router.get(
+    '/v1/admin/products/:productId/users',
+    requireJwt,
+    adminList.listProductUsers,
+  );
+  router.get(
+    '/v1/admin/products/:productId/users/:userId',
+    requireJwt,
+    adminList.getProductUserDetail,
+  );
+  router.get(
+    '/v1/admin/products/:productId/workspaces',
+    requireJwt,
+    adminList.listProductWorkspaces,
+  );
+  router.get(
+    '/v1/admin/products/:productId/workspaces/:workspaceId',
+    requireJwt,
+    adminList.getWorkspaceDetail,
+  );
+  router.get('/v1/admin/users/search', requireJwt, adminList.searchAllUsers);
+  router.get('/v1/admin/announcements', requireJwt, adminList.listAnnouncements);
+  router.post('/v1/admin/announcements', requireJwt, adminList.createAnnouncement);
+  router.patch(
+    '/v1/admin/announcements/:id',
+    requireJwt,
+    adminList.updateAnnouncement,
+  );
+  router.post(
+    '/v1/admin/announcements/:id/publish',
+    requireJwt,
+    adminList.publishAnnouncement,
+  );
+  router.post(
+    '/v1/admin/announcements/:id/archive',
+    requireJwt,
+    adminList.archiveAnnouncement,
+  );
 
   // ─── Me / self-service (V1.0-B) ───────────────────────────────────────
   const me = meHandlerFactory(ctx);
@@ -268,6 +343,19 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.get('/v1/users/me/deletion-requests', requireJwt, me.listMyDeletionRequests);
   router.get('/v1/sessions', requireJwt, me.listSessions);
   router.delete('/v1/sessions/:id', requireJwt, me.revokeSession);
+  // ─── Data export (V1.1-A / Flow W) ───────────────────────────────────
+  router.post('/v1/users/me/data-export', requireJwt, me.requestDataExport);
+  router.get('/v1/users/me/data-exports', requireJwt, me.listDataExports);
+  router.get(
+    '/v1/users/me/data-exports/:id/download',
+    requireJwt,
+    me.downloadDataExport,
+  );
+  // V1.1-C: MFA status (Addendum #6)
+  router.get('/v1/users/me/mfa/status', requireJwt, me.getMfaStatus);
+  // V1.1-C: Entitlements (Addendum #7)
+  const entitlements = entitlementsHandlerFactory();
+  router.get('/v1/entitlements/:workspaceId', requireJwt, entitlements.getEntitlements);
 
   return router;
 }

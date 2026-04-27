@@ -237,8 +237,8 @@
 - [x] **Flow AL** — Bundle CRUD + publish + archive (mandatory pre-publish validation V1–V8)
 - [x] **Flow T** — Bundle checkout w/ eligibility policy (block; cancel/replace deferred to v1.5)
 - [x] **Flow AK** — Bundle cancel cascade cron (`bundle.cancel.cascade`, daily, 7-day window)
-- [ ] **Flow AM** — Component plan-swap (P1 — deferred per system-design v1.0)
-- [ ] **Flow AN** — Standalone↔bundle migration (P1 — deferred per system-design v1.0)
+- [x] **Flow AM** — Component plan-swap (P1 — implemented in V1.1-B; integration tests in `apps/api/src/handlers/bundle-migrations.integration.test.ts`)
+- [x] **Flow AN** — Standalone↔bundle migration (P1 — implemented in V1.1-B; Path B integration-tested; Path A end-to-end via demo app)
 
 ---
 
@@ -327,56 +327,56 @@
 > Scheduled after v1.0 ships. Do not start until v1.0 is tagged.
 
 ### V1.1-A: GDPR Extended
-- [ ] **Flow W** — Data export async worker → S3 → signed URL email (24h cooldown)
-- [ ] Email deliverability re-enable cron (`email.deliverability.review` — addendum #8)
+- [x] **Flow W** — Data export async worker → S3 → signed URL email (24h cooldown)
+- [x] Email deliverability re-enable cron (`email.deliverability.review` — addendum #8)
 
 ### V1.1-B: Bundle Extensions (explicitly deferred from v1.0)
-- [ ] **Flow AM** — Component plan-swap (P1)
-- [ ] **Flow AN** — Standalone↔bundle migration (P1)
+- [x] **Flow AM** — Component plan-swap (P1)
+- [x] **Flow AN** — Standalone↔bundle migration (P1)
 
 ### V1.1-C: Admin Operations Extended
-- [ ] Admin: extend trial, extend grace, audit log export (GAP-21)
-- [ ] `GET /v1/users/me/mfa/status` (Addendum #6)
-- [ ] `GET /v1/entitlements/:workspaceId?includeGrandfatheringInfo=true` (Addendum #7)
+- [x] Admin: extend trial, extend grace, audit log export (GAP-21)
+- [x] `GET /v1/users/me/mfa/status` (Addendum #6)
+- [x] `GET /v1/entitlements/:workspaceId?includeGrandfatheringInfo=true` (Addendum #7)
 
 ### V1.1-D: `apps/admin-web` — Remaining Screens
-- [ ] **Screen 3** — Product Users
-- [ ] **Screen 4** — User Detail
-- [ ] **Screen 5** — Product Workspaces
-- [ ] **Screen 6** — Workspace Detail
-- [ ] **Screen 10** — All Users Search
-- [ ] **Screen 11** — Bundles List
-- [ ] **Screen 11a** — Bundle Detail (6 tabs)
-- [ ] **Screen 12** — Announcements
+- [x] **Screen 3** — Product Users
+- [x] **Screen 4** — User Detail
+- [x] **Screen 5** — Product Workspaces
+- [x] **Screen 6** — Workspace Detail
+- [x] **Screen 10** — All Users Search
+- [x] **Screen 11** — Bundles List
+- [x] **Screen 11a** — Bundle Detail (6 tabs)
+- [x] **Screen 12** — Announcements
 
 ### V1.1-E: Outbound Webhook Extended
-- [ ] S3 payload archival (compressed) with reference in Mongo
-- [ ] Webhook payload versioning (YC-016)
+- [x] S3 payload archival (compressed) with reference in Mongo
+- [x] Webhook payload versioning (YC-016)
 
 ### V1.1-F: Observability
-- [ ] OpenTelemetry SDK → Grafana Cloud
-- [ ] Prometheus metrics endpoint (`yocore_signin_p95`, `yocore_circuit_<provider>{state}`, `yocore_webhook_delivery_total{status}`, etc.)
-- [ ] Sentry SDK
-- [ ] Pre-built Grafana dashboard JSON (`docs/observability/grafana-dashboards/`)
-- [ ] SLI/SLO definitions documented
+- [x] OpenTelemetry SDK → Grafana Cloud
+- [x] Prometheus metrics endpoint (`yocore_signin_p95`, `yocore_circuit_<provider>{state}`, `yocore_webhook_delivery_total{status}`, etc.)
+- [x] Sentry SDK
+- [x] Pre-built Grafana dashboard JSON (`docs/observability/grafana-dashboards/`)
+- [x] SLI/SLO definitions documented
 
 ### V1.1-G: Full E2E + Demo App
-- [ ] `apps/demo-yopm` — tiny Express + React app importing `@yocore/sdk`
-- [ ] Playwright E2E: super-admin login w/ MFA
-- [ ] Playwright E2E: product create + plan publish
-- [ ] Playwright E2E: end-user signup → checkout → cancel
-- [ ] Playwright E2E: bundle checkout
-- [ ] Playwright E2E: MFA recovery flow
-- [ ] Playwright E2E: GDPR export request
-- [ ] Time-warp test (`@sinonjs/fake-timers`): 30d deletion grace finalize
-- [ ] Time-warp test: failed payment grace → Day 85 hard delete
-- [ ] DR dry run (Mongo restore from snapshot)
-- [ ] End-to-end acceptance test: super admin → product → plan → user signup → subscribe → cancel → 30d grace → hard delete (time-warped)
+- [x] `apps/demo-yopm` — tiny Express + React app importing `@yocore/sdk`
+- [x] Playwright E2E: super-admin login w/ MFA
+- [x] Playwright E2E: product create + plan publish
+- [x] Playwright E2E: end-user signup → checkout → cancel
+- [x] Playwright E2E: bundle checkout
+- [x] Playwright E2E: MFA recovery flow
+- [x] Playwright E2E: GDPR export request
+- [x] Time-warp test (`@sinonjs/fake-timers`): 30d deletion grace finalize
+- [x] Time-warp test: failed payment grace → Day 85 hard delete
+- [x] DR dry run (Mongo restore from snapshot)
+- [x] End-to-end acceptance test: super admin → product → plan → user signup → subscribe → cancel → 30d grace → hard delete (time-warped)
 
 ### V1.1-H: Infrastructure
-- [ ] `src/db/migrations/` (migrate-mongo setup)
-- [ ] Index audit (`db.collection.getIndexes()` per collection)
-- [ ] Vercel preview deploys for `admin-web` + `auth-web`
+- [x] `src/db/migrations/` (migrate-mongo setup)
+- [x] Index audit (`db.collection.getIndexes()` per collection)
+- [x] Vercel preview deploys for `admin-web` + `auth-web`
 
 ---
 

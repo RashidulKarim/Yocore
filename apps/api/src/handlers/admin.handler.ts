@@ -28,6 +28,7 @@ import {
   updateBundleRequestSchema,
   listBundlesQuerySchema,
   grantBundleAccessRequestSchema,
+  swapBundleComponentRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { safeEqual } from '../lib/tokens.js';
@@ -76,6 +77,8 @@ export interface AdminHandlers {
   deleteBundle: RequestHandler;
   previewBundle: RequestHandler;
   grantBundleAccess: RequestHandler;
+  // V1.1-B Flow AM
+  swapBundleComponent: RequestHandler;
 }
 
 export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
@@ -563,6 +566,34 @@ export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
         actor: { type: 'super_admin', id: auth.userId },
       });
       res.status(200).json({ bundle });
+    }),
+
+    // ── V1.1-B Flow AM — Component plan swap ───────────────────────────
+    swapBundleComponent: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const id = req.params['id'] ?? '';
+      const body = swapBundleComponentRequestSchema.parse(req.body);
+      const result = await ctx.bundleMigration.swapComponent({
+        bundleId: id,
+        componentIndex: body.componentIndex,
+        newPlanId: body.newPlanId,
+        applyPolicy: body.applyPolicy,
+        actor: { id: auth.userId },
+      });
+      await req.audit?.({
+        action: 'bundle.component_swapped',
+        outcome: 'success',
+        resource: { type: 'bundle', id },
+        metadata: {
+          componentIndex: result.componentIndex,
+          oldPlanId: result.oldPlanId,
+          newPlanId: result.newPlanId,
+          applyPolicy: result.applyPolicy,
+          affectedChildSubscriptions: result.affectedChildSubscriptions,
+        },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json(result);
     }),
   };
 }

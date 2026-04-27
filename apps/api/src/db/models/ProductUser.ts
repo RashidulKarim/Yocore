@@ -57,6 +57,7 @@ const productUserSchema = new Schema(
       security: { type: Boolean, default: true },
     },
     emailDeliverable: { type: Boolean, default: true },
+    emailDeliverableUpdatedAt: { type: Date, default: null },
     mfaEnrolledAt: { type: Date, default: null },
     lastKnownDevices: {
       type: [

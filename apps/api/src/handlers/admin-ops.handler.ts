@@ -19,12 +19,18 @@ import {
   listWebhookDeliveriesQuerySchema,
   updateSuperAdminConfigRequestSchema,
   publishTosVersionRequestSchema,
+  resetEmailDeliverabilityRequestSchema,
+  extendTrialRequestSchema,
+  extendGraceRequestSchema,
+  exportAuditLogQuerySchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { requireSuperAdmin } from '../middleware/jwt-auth.js';
 import { asyncHandler } from './index.js';
 import { SuperAdminConfig } from '../db/models/SuperAdminConfig.js';
 import { TosVersion } from '../db/models/TosVersion.js';
+import { Subscription } from '../db/models/Subscription.js';
+import { AuditLog } from '../db/models/AuditLog.js';
 import { SUPER_ADMIN_CONFIG_RELOAD_CHANNEL } from '../middleware/super-admin-ip.js';
 import type { AppContext } from '../context.js';
 
@@ -40,6 +46,10 @@ export interface AdminOpsHandlers {
   updateSuperAdminConfig: RequestHandler;
   publishTosVersion: RequestHandler;
   listTosVersions: RequestHandler;
+  resetEmailDeliverability: RequestHandler;
+  extendTrial: RequestHandler;
+  extendGrace: RequestHandler;
+  exportAuditLog: RequestHandler;
 }
 
 export function adminOpsHandlerFactory(ctx: AppContext): AdminOpsHandlers {
@@ -111,6 +121,15 @@ export function adminOpsHandlerFactory(ctx: AppContext): AdminOpsHandlers {
           break;
         case 'gdpr.deletion.tick':
           result = await ctx.gdprDeletion.runDeletionTick();
+          break;
+        case 'gdpr.dataExport.tick':
+          result = await ctx.dataExport.runExportTick();
+          break;
+        case 'email.deliverability.review':
+          result = await ctx.emailDeliverability.runReviewTick();
+          break;
+        case 'webhook.archive.tick':
+          result = await ctx.webhookArchive.runArchiveTick();
           break;
         default:
           // billing/bundle ticks go through the cron registry directly.
@@ -321,6 +340,128 @@ export function adminOpsHandlerFactory(ctx: AppContext): AdminOpsHandlers {
           changeSummary: r.changeSummary,
         })),
       });
+    }),
+
+    // ── Email deliverability admin reset (V1.1-A / addendum #8) ───────
+    resetEmailDeliverability: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const userId = req.params['id'] ?? '';
+      const body = resetEmailDeliverabilityRequestSchema.parse(req.body ?? {});
+      const result = await ctx.emailDeliverability.manualReset({
+        userId,
+        productId: body.productId,
+        actorId: auth.userId,
+        reason: body.reason,
+      });
+      res.status(200).json({ updated: result.updated });
+    }),
+
+    // ── V1.1-C admin: extend trial ───────────────────────────────
+    extendTrial: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['productId'] ?? '';
+      const subscriptionId = req.params['id'] ?? '';
+      const body = extendTrialRequestSchema.parse(req.body);
+      const sub = await Subscription.findOne({ _id: subscriptionId, productId })
+        .select('_id status trialEndsAt')
+        .lean<{ _id: string; status: string; trialEndsAt: Date | null } | null>();
+      if (!sub) throw new AppError(ErrorCode.SUBSCRIPTION_NOT_FOUND, 'Subscription not found');
+      if (sub.status !== 'TRIALING') {
+        throw new AppError(ErrorCode.VALIDATION_FAILED, 'Subscription is not TRIALING');
+      }
+      const base = sub.trialEndsAt ?? new Date();
+      const newEnd = new Date(base.getTime() + body.additionalDays * 86_400_000);
+      await Subscription.updateOne({ _id: subscriptionId }, { $set: { trialEndsAt: newEnd } });
+      await req.audit?.({
+        action: 'subscription.trial_extended',
+        outcome: 'success',
+        productId,
+        resource: { type: 'subscription', id: subscriptionId },
+        metadata: {
+          additionalDays: body.additionalDays,
+          newTrialEndsAt: newEnd.toISOString(),
+          reason: body.reason,
+        },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({
+        subscriptionId,
+        trialEndsAt: newEnd.toISOString(),
+        additionalDays: body.additionalDays,
+      });
+    }),
+
+    // ── V1.1-C admin: extend grace (shift paymentFailedAt earlier so the
+    //                              D+1/D+5/D+7 ladder fires later) ────────
+    extendGrace: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['productId'] ?? '';
+      const subscriptionId = req.params['id'] ?? '';
+      const body = extendGraceRequestSchema.parse(req.body);
+      const sub = await Subscription.findOne({ _id: subscriptionId, productId })
+        .select('_id status paymentFailedAt')
+        .lean<{ _id: string; status: string; paymentFailedAt: Date | null } | null>();
+      if (!sub) throw new AppError(ErrorCode.SUBSCRIPTION_NOT_FOUND, 'Subscription not found');
+      if (sub.status !== 'PAST_DUE') {
+        throw new AppError(ErrorCode.VALIDATION_FAILED, 'Subscription is not PAST_DUE');
+      }
+      const base = sub.paymentFailedAt ?? new Date();
+      const shifted = new Date(base.getTime() + body.additionalDays * 86_400_000);
+      await Subscription.updateOne(
+        { _id: subscriptionId },
+        { $set: { paymentFailedAt: shifted } },
+      );
+      await req.audit?.({
+        action: 'subscription.grace_extended',
+        outcome: 'success',
+        productId,
+        resource: { type: 'subscription', id: subscriptionId },
+        metadata: {
+          additionalDays: body.additionalDays,
+          newPaymentFailedAt: shifted.toISOString(),
+          reason: body.reason,
+        },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(200).json({
+        subscriptionId,
+        paymentFailedAt: shifted.toISOString(),
+        additionalDays: body.additionalDays,
+      });
+    }),
+
+    // ── V1.1-C admin: audit-log export (GAP-21) ──────────────────────
+    exportAuditLog: asyncHandler(async (req, res) => {
+      requireSuperAdmin(req);
+      const q = exportAuditLogQuerySchema.parse(req.query);
+      const filter: Record<string, unknown> = {};
+      if (q.productId) filter['productId'] = q.productId;
+      if (q.actorId) filter['actor.id'] = q.actorId;
+      if (q.action) filter['action'] = q.action;
+      if (q.from || q.to) {
+        const ts: Record<string, Date> = {};
+        if (q.from) ts['$gte'] = new Date(q.from);
+        if (q.to) ts['$lte'] = new Date(q.to);
+        filter['ts'] = ts;
+      }
+      const cursor = AuditLog.find(filter).sort({ ts: -1 }).limit(q.limit).cursor();
+      if (q.format === 'ndjson') {
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit-log.ndjson"');
+        for await (const doc of cursor) {
+          const o = (doc as { toObject: () => Record<string, unknown> }).toObject();
+          res.write(JSON.stringify(o) + '\n');
+        }
+        res.end();
+        return;
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-log.json"');
+      const rows: unknown[] = [];
+      for await (const doc of cursor) {
+        rows.push((doc as { toObject: () => Record<string, unknown> }).toObject());
+      }
+      res.status(200).json({ count: rows.length, rows });
     }),
   };
 }

@@ -11,6 +11,7 @@
 import type { Request, Response, RequestHandler } from 'express';
 import {
   requestSelfDeletionRequestSchema,
+  requestDataExportRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { verify as verifyPassword, timingSafeDummyVerify } from '../lib/password.js';
@@ -18,6 +19,7 @@ import { asyncHandler } from './index.js';
 import * as sessionRepo from '../repos/session.repo.js';
 import * as productUserRepo from '../repos/product-user.repo.js';
 import * as userRepo from '../repos/user.repo.js';
+import * as mfaRepo from '../repos/mfa.repo.js';
 import type { AppContext } from '../context.js';
 
 export interface MeHandlers {
@@ -26,6 +28,10 @@ export interface MeHandlers {
   listMyDeletionRequests: RequestHandler;
   listSessions: RequestHandler;
   revokeSession: RequestHandler;
+  requestDataExport: RequestHandler;
+  listDataExports: RequestHandler;
+  downloadDataExport: RequestHandler;
+  getMfaStatus: RequestHandler;
 }
 
 export function meHandlerFactory(ctx: AppContext): MeHandlers {
@@ -169,6 +175,87 @@ export function meHandlerFactory(ctx: AppContext): MeHandlers {
         actor: { type: 'user', id: auth.userId },
       });
       res.status(200).json({ revoked: true });
+    }),
+
+    // ── Data export (V1.1-A / Flow W) ──────────────────────────────────
+    requestDataExport: asyncHandler(async (req, res) => {
+      const auth = req.auth;
+      if (!auth) throw new AppError(ErrorCode.AUTH_INVALID_TOKEN, 'Authentication required');
+      const body = requestDataExportRequestSchema.parse(req.body ?? {});
+      const result = await ctx.dataExport.requestExport({
+        userId: auth.userId,
+        scope: body.scope,
+        requestedFromIp: req.ip ?? null,
+      });
+      await req.audit?.({
+        action: 'gdpr.data_export.requested',
+        outcome: 'success',
+        resource: { type: 'data_export', id: result.jobId },
+        metadata: { scope: body.scope },
+        actor: { type: 'user', id: auth.userId },
+      });
+      res.status(202).json({
+        jobId: result.jobId,
+        status: result.status,
+        createdAt: result.createdAt.toISOString(),
+      });
+    }),
+
+    listDataExports: asyncHandler(async (req, res) => {
+      const auth = req.auth;
+      if (!auth) throw new AppError(ErrorCode.AUTH_INVALID_TOKEN, 'Authentication required');
+      const rows = await ctx.dataExport.listForUser(auth.userId);
+      res.status(200).json({
+        exports: rows.map((r) => ({
+          id: r.id,
+          status: r.status,
+          scope: r.scope,
+          createdAt: r.createdAt.toISOString(),
+          completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+          expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+          downloadUrl: r.downloadUrl,
+          errorMessage: r.errorMessage,
+        })),
+      });
+    }),
+
+    downloadDataExport: asyncHandler(async (req, res) => {
+      const auth = req.auth;
+      if (!auth) throw new AppError(ErrorCode.AUTH_INVALID_TOKEN, 'Authentication required');
+      const id = req.params['id'] ?? '';
+      const token = typeof req.query['token'] === 'string' ? (req.query['token'] as string) : '';
+      const { stream, contentType, filename } = await ctx.dataExport.streamDownload({
+        jobId: id,
+        userId: auth.userId,
+        token,
+      });
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      stream.on('error', (err) => {
+        // eslint-disable-next-line no-console
+        console.error('[data-export.download] stream error', err);
+        if (!res.headersSent) res.status(500).end();
+        else res.destroy();
+      });
+      stream.pipe(res);
+    }),
+
+    // ── V1.1-C — GET /v1/users/me/mfa/status (Addendum #6) ─────────────
+    getMfaStatus: asyncHandler(async (req, res) => {
+      const auth = req.auth;
+      if (!auth) throw new AppError(ErrorCode.AUTH_INVALID_TOKEN, 'Authentication required');
+      const productId = typeof req.query['productId'] === 'string'
+        ? (req.query['productId'] as string)
+        : null;
+      const totp = await mfaRepo.findVerifiedTotp(auth.userId, productId);
+      const recoveryRemaining = await mfaRepo.countUnusedRecovery(auth.userId, productId);
+      res.status(200).json({
+        productId,
+        enrolled: !!totp,
+        enrolledAt: totp?.verifiedAt ? totp.verifiedAt.toISOString() : null,
+        lastUsedAt: totp?.lastUsedAt ? totp.lastUsedAt.toISOString() : null,
+        recoveryCodesRemaining: recoveryRemaining,
+      });
     }),
   };
 }

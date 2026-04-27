@@ -274,3 +274,62 @@ export const bundleCancelResponseSchema = z.object({
   cascadeScheduled: z.boolean(),
 });
 export type BundleCancelResponse = z.infer<typeof bundleCancelResponseSchema>;
+
+// -- V1.1-B Flow AM ----------------------------------------------------
+export const swapBundleComponentRequestSchema = z
+  .object({
+    componentIndex: z.number().int().min(0).max(20),
+    newPlanId: idSchema,
+    applyPolicy: z.enum(['grandfather', 'forced_migrate']),
+  })
+  .strict();
+export type SwapBundleComponentRequest = z.infer<typeof swapBundleComponentRequestSchema>;
+
+export const swapBundleComponentResponseSchema = z.object({
+  bundleId: idSchema,
+  componentIndex: z.number().int(),
+  oldPlanId: idSchema,
+  newPlanId: idSchema,
+  applyPolicy: z.enum(['grandfather', 'forced_migrate']),
+  affectedChildSubscriptions: z.number().int(),
+});
+export type SwapBundleComponentResponse = z.infer<typeof swapBundleComponentResponseSchema>;
+
+// -- V1.1-B Flow AN — Path A -------------------------------------------
+export const migrateToBundleRequestSchema = z
+  .object({
+    bundleId: idSchema,
+    currency: currencySchema,
+  })
+  .strict();
+export type MigrateToBundleRequest = z.infer<typeof migrateToBundleRequestSchema>;
+
+export const migrateToBundleResponseSchema = z.object({
+  checkoutUrl: z.string().url(),
+  canceledStandaloneSubs: z.array(idSchema),
+  creditBalance: z.number().int(),
+});
+export type MigrateToBundleResponse = z.infer<typeof migrateToBundleResponseSchema>;
+
+// -- V1.1-B Flow AN — Path B -------------------------------------------
+export const downgradeToStandaloneRequestSchema = z
+  .object({
+    keepComponents: z.array(idSchema).max(20),
+    targetPlans: z.record(idSchema, idSchema),
+  })
+  .strict();
+export type DowngradeToStandaloneRequest = z.infer<typeof downgradeToStandaloneRequestSchema>;
+
+export const downgradeToStandaloneResponseSchema = z.object({
+  bundleParentSubscriptionId: idSchema,
+  keptComponents: z.array(
+    z.object({
+      productId: idSchema,
+      targetPlanId: idSchema,
+      childSubId: idSchema,
+    }),
+  ),
+  droppedComponents: z.array(idSchema),
+  cancelAtPeriodEnd: z.string().nullable(),
+});
+export type DowngradeToStandaloneResponse = z.infer<typeof downgradeToStandaloneResponseSchema>;

@@ -1,0 +1,17 @@
+{
+  "mongodb": {
+    "url": "mongodb://localhost:27017",
+    "databaseName": "yocore",
+    "options": {
+      "useNewUrlParser": true,
+      "useUnifiedTopology": true
+    }
+  },
+  "migrationsDir": "src/db/migrations",
+  "changelogCollectionName": "schemaMigrations",
+  "lockCollectionName": "schemaMigrationsLock",
+  "lockTtl": 600,
+  "migrationFileExtension": ".ts",
+  "useFileHash": false,
+  "moduleSystem": "esm"
+}

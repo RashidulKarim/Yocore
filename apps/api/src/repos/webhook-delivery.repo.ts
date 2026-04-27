@@ -16,6 +16,7 @@ export interface EnqueueDeliveryInput {
   url: string;
   payloadRef: string;
   payload?: Record<string, unknown> | null;
+  payloadVersion?: string | null;
   signatureHeader?: string | null;
 }
 
@@ -34,6 +35,7 @@ export async function enqueueDelivery(
       url: input.url,
       payloadRef: input.payloadRef,
       payload: input.payload ?? null,
+      payloadVersion: input.payloadVersion ?? '2026-04-23',
       signatureHeader: input.signatureHeader ?? null,
       status: 'PENDING',
       attempts: [],
@@ -191,4 +193,42 @@ export async function resetForRetry(id: string, now: Date): Promise<WebhookDeliv
     },
     { new: true },
   ).lean<WebhookDeliveryLean | null>();
+}
+
+/**
+ * V1.1-E archive support: scan terminal-state rows older than `olderThan` that
+ * still carry an inline payload. The worker compresses + uploads them to S3.
+ */
+export async function findArchivable(args: {
+  olderThan: Date;
+  limit: number;
+}): Promise<WebhookDeliveryLean[]> {
+  return WebhookDelivery.find({
+    status: { $in: ['DELIVERED', 'DEAD'] },
+    payloadArchivedAt: null,
+    payload: { $ne: null },
+    deliveredAt: { $lte: args.olderThan },
+  })
+    .sort({ deliveredAt: 1 })
+    .limit(args.limit)
+    .lean<WebhookDeliveryLean[]>();
+}
+
+export async function markArchived(args: {
+  id: string;
+  bucket: string;
+  key: string;
+  at: Date;
+}): Promise<void> {
+  await WebhookDelivery.updateOne(
+    { _id: args.id },
+    {
+      $set: {
+        payloadS3Key: args.key,
+        payloadS3Bucket: args.bucket,
+        payloadArchivedAt: args.at,
+        payload: null,
+      },
+    },
+  );
 }

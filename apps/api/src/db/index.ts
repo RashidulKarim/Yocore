@@ -52,3 +52,4 @@ export { DataExportJob, type DataExportJobDoc } from './models/DataExportJob.js'
 export { DeletionRequest, type DeletionRequestDoc } from './models/DeletionRequest.js';
 export { TosVersion, type TosVersionDoc } from './models/TosVersion.js';
 export { SuperAdminConfig, type SuperAdminConfigDoc } from './models/SuperAdminConfig.js';
+export { Announcement, type AnnouncementDoc } from './models/Announcement.js';

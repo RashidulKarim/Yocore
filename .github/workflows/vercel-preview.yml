@@ -1,0 +1,77 @@
+name: Vercel preview deploys
+
+# Builds preview environments for `apps/admin-web` and `apps/auth-web` on
+# every PR, posting unique URLs back to the PR description.
+#
+# Required repo secrets:
+#   - VERCEL_TOKEN
+#   - VERCEL_ORG_ID
+#   - VERCEL_PROJECT_ID_ADMIN_WEB
+#   - VERCEL_PROJECT_ID_AUTH_WEB
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/admin-web/**'
+      - 'apps/auth-web/**'
+      - 'packages/sdk/**'
+      - 'packages/types/**'
+      - 'pnpm-lock.yaml'
+
+concurrency:
+  group: vercel-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: admin-web
+            project_id_secret: VERCEL_PROJECT_ID_ADMIN_WEB
+          - app: auth-web
+            project_id_secret: VERCEL_PROJECT_ID_AUTH_WEB
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets[matrix.project_id_secret] }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.12.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.11.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @yocore/${{ matrix.app }} build
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Pull Vercel env (preview)
+        working-directory: apps/${{ matrix.app }}
+        run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+      - name: Build for Vercel
+        working-directory: apps/${{ matrix.app }}
+        run: vercel build --token=$VERCEL_TOKEN
+      - name: Deploy preview
+        id: deploy
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Comment PR with URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = `${{ steps.deploy.outputs.url }}`;
+            const app = `${{ matrix.app }}`;
+            const body = `🔍 **${app}** preview: ${url}`;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });

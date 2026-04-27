@@ -24,6 +24,7 @@ import {
   authorizeRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
+import { signinDuration } from '../lib/metrics.js';
 import * as mfaService from '../services/mfa.service.js';
 import * as productUserRepo from '../repos/product-user.repo.js';
 import { finalizeOnboarding as finalizeOnboardingService } from '../services/finalize-onboarding.service.js';
@@ -150,7 +151,10 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
     }),
     signin: asyncHandler(async (req: Request, res: Response) => {
       const body = signinRequestSchema.parse(req.body);
-      const result = await ctx.auth.signin({
+      const start = process.hrtime.bigint();
+      let outcomeLabel = 'failed';
+      try {
+        const result = await ctx.auth.signin({
         email: body.email,
         password: body.password,
         ...(body.productSlug !== undefined ? { productSlug: body.productSlug } : {}),
@@ -164,6 +168,7 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
       });
 
       if (result.kind === 'mfa_required') {
+        outcomeLabel = 'mfa_required';
         await req.audit?.({
           action: 'auth.signin.mfa_required',
           outcome: 'success',
@@ -192,6 +197,11 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
         productId: result.productId,
         tokens: result.tokens,
       });
+      outcomeLabel = 'success';
+      } finally {
+        const dur = Number(process.hrtime.bigint() - start) / 1e9;
+        signinDuration.labels(outcomeLabel).observe(dur);
+      }
     }),
 
     refresh: asyncHandler(async (req: Request, res: Response) => {
