@@ -7,6 +7,7 @@ import { logger } from './lib/logger.js';
 import { createAppContext } from './context.js';
 import { CronRunner } from './lib/cron-runner.js';
 import { createMongoCronLockStore } from './repos/cron-lock.repo.js';
+import { processBatch, consoleDriver, createSmtpDriver, type EmailDriver } from './services/email-worker.service.js';
 import os from 'node:os';
 
 async function bootstrap(): Promise<void> {
@@ -15,7 +16,11 @@ async function bootstrap(): Promise<void> {
   getRedis();
 
   const ctx = await createAppContext();
-  const app = createApp({ ctx, trustProxy: 1 });
+  const app = createApp({
+    ctx,
+    trustProxy: 1,
+    disableIpAllowlist: env.SUPER_ADMIN_IP_ALLOWLIST_BYPASS === true,
+  });
   const server = app.listen(env.PORT, () => {
     logger.info({ event: 'http.listening', port: env.PORT }, `API listening on :${env.PORT}`);
   });
@@ -54,12 +59,65 @@ async function bootstrap(): Promise<void> {
     lockTtlMs: 60 * 60 * 1000,
     handler: () => ctx.bundleCascade.runBundleCancelCascade().then(() => undefined),
   });
+  cron.register({
+    name: 'jwt.key.retire',
+    schedule: 'hourly',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 15 * 60 * 1000,
+    handler: () => ctx.jwtRotation.retireExpiredVerifyingKeys().then(() => undefined),
+  });
+  cron.register({
+    name: 'gdpr.deletion.tick',
+    schedule: 'daily',
+    dateKey: () => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 60 * 60 * 1000,
+    handler: () => ctx.gdprDeletion.runDeletionTick().then(() => undefined),
+  });
   const cronTimer = setInterval(() => {
     void cron.runOnce('billing.trial.tick');
     void cron.runOnce('billing.grace.tick');
     void cron.runOnce('bundle.cancel.cascade');
+    void cron.runOnce('jwt.key.retire');
+    void cron.runOnce('gdpr.deletion.tick');
   }, 5 * 60 * 1000);
   cronTimer.unref();
+
+  // Email delivery worker — runs every 30s. Drains the emailQueue collection.
+  const emailDriver: EmailDriver =
+    env.EMAIL_PROVIDER === 'smtp'
+      ? createSmtpDriver({
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_SECURE,
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        })
+      : consoleDriver;
+  const emailTimer = setInterval(() => {
+    void processBatch({ driver: emailDriver }).catch((err) => {
+      logger.error({ event: 'email.delivery.tick.error', err }, 'email delivery tick failed');
+    });
+  }, 30 * 1000);
+  emailTimer.unref();
+  // Kick off immediately so the first batch doesn't wait 30s
+  void processBatch({ driver: emailDriver }).catch((err) => {
+    logger.error({ event: 'email.delivery.tick.error', err }, 'email delivery tick failed (boot)');
+  });
+
+  // Webhook delivery worker — runs every 30s on every pod. Per-row `lockedUntil`
+  // mutex prevents double-pick; no Mongo cronLock needed.
+  const webhookTimer = setInterval(() => {
+    void ctx.webhookDelivery.processBatch().catch((err) => {
+      logger.error({ event: 'webhook.delivery.tick.error', err }, 'webhook delivery tick failed');
+    });
+  }, 30 * 1000);
+  webhookTimer.unref();
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {

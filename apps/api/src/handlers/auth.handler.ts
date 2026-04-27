@@ -21,6 +21,7 @@ import {
   emailPreferencesPatchSchema,
   unsubscribeRequestSchema,
   exchangeRequestSchema,
+  authorizeRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import * as mfaService from '../services/mfa.service.js';
@@ -45,6 +46,7 @@ export interface AuthHandlers {
   emailPrefsGet: RequestHandler;
   emailPrefsPatch: RequestHandler;
   emailUnsubscribe: RequestHandler;
+  pkceIssue: RequestHandler;
   pkceExchange: RequestHandler;
   mfaEnrolStart: RequestHandler;
   mfaEnrolVerify: RequestHandler;
@@ -63,6 +65,8 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
         name: body.name,
         marketingOptIn: body.marketingOptIn,
         ip: req.ip ?? null,
+        acceptedTosVersion: body.acceptedTosVersion,
+        acceptedPrivacyVersion: body.acceptedPrivacyVersion,
       });
 
       // Audit only when something was actually created. The fixed response
@@ -126,6 +130,12 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
         ...(body.dateFormat !== undefined ? { dateFormat: body.dateFormat } : {}),
         ...(body.timeFormat !== undefined ? { timeFormat: body.timeFormat } : {}),
         ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
+        ...(body.acceptedTosVersion !== undefined
+          ? { acceptedTosVersion: body.acceptedTosVersion }
+          : {}),
+        ...(body.acceptedPrivacyVersion !== undefined
+          ? { acceptedPrivacyVersion: body.acceptedPrivacyVersion }
+          : {}),
       });
 
       await req.audit?.({
@@ -392,6 +402,37 @@ export function authHandlerFactory(ctx: AppContext): AuthHandlers {
       const { token } = unsubscribeRequestSchema.parse(source);
       const outcome = await ctx.emailPrefs.unsubscribe(token);
       res.status(200).json(outcome);
+    }),
+
+    pkceIssue: asyncHandler(async (req: Request, res: Response) => {
+      // Caller is an authenticated user (typically the hosted auth-web). We
+      // mint a one-time PKCE auth code bound to their session.
+      const auth = requireAuth(req);
+      const body = authorizeRequestSchema.parse(req.body);
+      // Resolve product by slug — service expects productId.
+      const productRepo = await import('../repos/product.repo.js');
+      const product = await productRepo.findProductBySlug(body.productSlug);
+      if (!product || product.status !== 'ACTIVE') {
+        throw new AppError(ErrorCode.NOT_FOUND, 'Product not found');
+      }
+      const issued = await ctx.pkce.issueCode({
+        userId: auth.userId,
+        productId: product._id,
+        redirectUri: body.redirectUri,
+        codeChallenge: body.codeChallenge,
+        codeChallengeMethod: body.codeChallengeMethod,
+      });
+      await req.audit?.({
+        action: 'auth.pkce.issued',
+        outcome: 'success',
+        productId: product._id,
+        resource: { type: 'user', id: auth.userId },
+      });
+      res.status(200).json({
+        code: issued.code,
+        state: body.state,
+        expiresAt: issued.expiresAt.toISOString(),
+      });
     }),
 
     pkceExchange: asyncHandler(async (req: Request, res: Response) => {

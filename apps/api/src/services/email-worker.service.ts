@@ -11,6 +11,7 @@
  *   - send({...}) → { providerMessageId } on success
  *   - throws on failure; the caller decides retryability.
  */
+import nodemailer from 'nodemailer';
 import { logger } from '../lib/logger.js';
 import { EmailQueue, type EmailQueueDoc } from '../db/models/EmailQueue.js';
 
@@ -26,6 +27,37 @@ export interface EmailDriverPayload {
 export interface EmailDriver {
   name: 'resend' | 'ses' | 'console';
   send(payload: EmailDriverPayload): Promise<{ providerMessageId: string }>;
+}
+
+/** SMTP driver — used for local dev with Mailhog or any SMTP relay. */
+export function createSmtpDriver(opts: {
+  host: string;
+  port: number;
+  secure?: boolean;
+  user?: string;
+  pass?: string;
+}): EmailDriver {
+  const transporter = nodemailer.createTransport({
+    host: opts.host,
+    port: opts.port,
+    secure: opts.secure ?? false,
+    ...(opts.user ? { auth: { user: opts.user, pass: opts.pass ?? '' } } : {}),
+  });
+  return {
+    name: 'ses', // stored as 'ses' to satisfy the union; Mailhog acts as a sink
+    async send(payload) {
+      const info = await transporter.sendMail({
+        from: payload.fromName
+          ? `"${payload.fromName}" <${payload.fromAddress}>`
+          : payload.fromAddress,
+        to: payload.toAddress,
+        subject: payload.subject,
+        text: `Template: ${payload.templateId}\n\n${JSON.stringify(payload.templateData, null, 2)}`,
+        html: `<p><strong>Template:</strong> ${payload.templateId}</p><pre>${JSON.stringify(payload.templateData, null, 2)}</pre>`,
+      });
+      return { providerMessageId: info.messageId };
+    },
+  };
 }
 
 /** Default driver for local dev + tests. Logs the email and returns a synthetic id. */

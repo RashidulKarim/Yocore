@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50;
+  }
+  .input {
+    @apply block w-full rounded-md border-0 py-2 px-3 text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-600 sm:text-sm;
+  }
+  .label {
+    @apply block text-sm font-medium leading-6 text-slate-900;
+  }
+  .card {
+    @apply mx-auto w-full max-w-md rounded-2xl bg-white p-8 shadow-md ring-1 ring-slate-200;
+  }
+  .alert-error {
+    @apply rounded-md bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-inset ring-rose-200;
+  }
+  .alert-info {
+    @apply rounded-md bg-sky-50 p-3 text-sm text-sky-800 ring-1 ring-inset ring-sky-200;
+  }
+}

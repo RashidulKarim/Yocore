@@ -5,7 +5,8 @@
     "outDir": "dist",
     "composite": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "lib": ["ES2022", "DOM"]
   },
   "references": [{ "path": "../types" }],
   "include": ["src/**/*.ts"],

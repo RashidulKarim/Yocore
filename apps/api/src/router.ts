@@ -5,6 +5,8 @@ import {
   deepHealthHandler,
 } from './handlers/health.handler.js';
 import { adminHandlerFactory } from './handlers/admin.handler.js';
+import { adminOpsHandlerFactory } from './handlers/admin-ops.handler.js';
+import { meHandlerFactory } from './handlers/me.handler.js';
 import { authHandlerFactory } from './handlers/auth.handler.js';
 import { workspaceHandlerFactory } from './handlers/workspace.handler.js';
 import { publicPlansHandlerFactory } from './handlers/public-plans.handler.js';
@@ -12,6 +14,8 @@ import { billingHandlerFactory } from './handlers/billing.handler.js';
 import { webhookHandlerFactory } from './handlers/webhooks.handler.js';
 import { jwtAuthMiddleware } from './middleware/jwt-auth.js';
 import { auditLogMiddleware } from './middleware/audit-log.js';
+import * as tosService from './services/tos.service.js';
+import { buildOpenApiDocument } from './openapi.js';
 import type { AppContext } from './context.js';
 
 export interface BuildRouterOptions {
@@ -34,6 +38,33 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   const admin = adminHandlerFactory(ctx);
   router.post('/v1/admin/bootstrap', admin.bootstrap);
 
+  // ─── OpenAPI ───────────────────────────────────────────────────────────
+  router.get('/v1/openapi.json', (_req, res) => {
+    res.json(buildOpenApiDocument());
+  });
+
+  // ─── ToS / Privacy (public) ─────────────────────────────────────────────
+  router.get('/v1/tos/current', async (_req, res, next) => {
+    try {
+      const current = await tosService.getCurrent();
+      const map = (d: typeof current.termsOfService) =>
+        d
+          ? {
+              version: d.version,
+              effectiveAt: d.effectiveAt.toISOString(),
+              contentUrl: d.contentUrl,
+              contentHash: d.contentHash,
+            }
+          : null;
+      res.json({
+        termsOfService: map(current.termsOfService),
+        privacyPolicy: map(current.privacyPolicy),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // ─── Auth (public) ──────────────────────────────────────────────────────
   const auth = authHandlerFactory(ctx);
   router.post('/v1/auth/signup', auth.signup);
@@ -47,13 +78,13 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.post('/v1/email/unsubscribe', auth.emailUnsubscribe);
   router.get('/v1/email/unsubscribe', auth.emailUnsubscribe);
   router.post('/v1/auth/pkce/exchange', auth.pkceExchange);
-
   // ─── Auth (authenticated) ───────────────────────────────────────────────
   const requireJwt = jwtAuthMiddleware({
     keyring: ctx.keyring,
     sessionStore: ctx.sessionStore,
   });
   router.post('/v1/auth/logout', requireJwt, auth.logout);
+  router.post('/v1/auth/pkce/issue', requireJwt, auth.pkceIssue);
   router.post('/v1/auth/finalize-onboarding', requireJwt, auth.finalizeOnboarding);
   router.post('/v1/auth/email/change-request', requireJwt, auth.emailChangeRequest);
   router.get('/v1/users/me/email-preferences', requireJwt, auth.emailPrefsGet);
@@ -64,7 +95,7 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.get('/v1/admin/products', requireJwt, admin.listProducts);
   router.get('/v1/admin/products/:id', requireJwt, admin.getProduct);
   router.patch('/v1/admin/products/:id', requireJwt, admin.updateProduct);
-  router.patch('/v1/admin/products/:id/status', requireJwt, admin.setProductStatus);
+  router.post('/v1/admin/products/:id/status', requireJwt, admin.setProductStatus);
   router.post('/v1/admin/products/:id/rotate-api-secret', requireJwt, admin.rotateApiSecret);
   router.post(
     '/v1/admin/products/:id/rotate-webhook-secret',
@@ -199,6 +230,44 @@ export function buildRouter(opts: BuildRouterOptions): Router {
 
   router.post('/v1/permissions/check', requireJwt, ws.permissionsCheck);
   router.get('/v1/permissions/catalog', requireJwt, ws.permissionsCatalog);
+
+  // ─── Admin Ops (Super-Admin) — V1.0-B/C/D ──────────────────────────────
+  const adminOps = adminOpsHandlerFactory(ctx);
+  router.post(
+    '/v1/admin/products/:productId/subscriptions/:id/force-status',
+    requireJwt,
+    adminOps.forceSubscriptionStatus,
+  );
+  router.post(
+    '/v1/admin/products/:productId/subscriptions/:id/apply-credit',
+    requireJwt,
+    adminOps.applySubscriptionCredit,
+  );
+  router.get('/v1/admin/cron/status', requireJwt, adminOps.cronStatus);
+  router.post('/v1/admin/cron/run', requireJwt, adminOps.forceCronRun);
+  router.get('/v1/admin/webhook-deliveries', requireJwt, adminOps.listWebhookDeliveries);
+  router.post(
+    '/v1/admin/webhook-deliveries/:id/retry',
+    requireJwt,
+    adminOps.retryWebhookDelivery,
+  );
+  router.post('/v1/admin/jwt/rotate-key', requireJwt, adminOps.rotateJwtKey);
+  router.get('/v1/admin/super-admin/config', requireJwt, adminOps.getSuperAdminConfig);
+  router.patch(
+    '/v1/admin/super-admin/config',
+    requireJwt,
+    adminOps.updateSuperAdminConfig,
+  );
+  router.post('/v1/admin/tos', requireJwt, adminOps.publishTosVersion);
+  router.get('/v1/admin/tos', requireJwt, adminOps.listTosVersions);
+
+  // ─── Me / self-service (V1.0-B) ───────────────────────────────────────
+  const me = meHandlerFactory(ctx);
+  router.delete('/v1/users/me', requireJwt, me.requestDeletion);
+  router.post('/v1/users/me/cancel-deletion', requireJwt, me.cancelDeletion);
+  router.get('/v1/users/me/deletion-requests', requireJwt, me.listMyDeletionRequests);
+  router.get('/v1/sessions', requireJwt, me.listSessions);
+  router.delete('/v1/sessions/:id', requireJwt, me.revokeSession);
 
   return router;
 }

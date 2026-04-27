@@ -826,3 +826,59 @@ export async function findActiveSubsForSubjectsAcrossProducts(
   });
   return Subscription.find({ $or: orClauses }).lean<SubscriptionLean[]>();
 }
+
+// ── Admin operations (V1.0-D) ────────────────────────────────────────
+
+/** Force a subscription's status (super admin override). Returns updated row. */
+export async function forceStatus(args: {
+  productId: string;
+  subscriptionId: string;
+  status: SubscriptionStatus;
+  reason: string;
+  changedBy: string;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: { status: args.status },
+      $push: {
+        changeHistory: {
+          changedAt: new Date(),
+          changedBy: args.changedBy,
+          type: 'admin_force_status',
+          before: null,
+          after: { status: args.status },
+          reason: args.reason,
+        },
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Apply a credit balance adjustment (positive = credit, negative = debit). */
+export async function applyCredit(args: {
+  productId: string;
+  subscriptionId: string;
+  deltaMinor: number;
+  reason: string;
+  changedBy: string;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $inc: { creditBalance: args.deltaMinor },
+      $push: {
+        changeHistory: {
+          changedAt: new Date(),
+          changedBy: args.changedBy,
+          type: 'admin_credit_adjust',
+          before: null,
+          after: { delta: args.deltaMinor },
+          reason: args.reason,
+        },
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}

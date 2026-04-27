@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,6 +34,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm turbo run lint typecheck
+      - name: Audit log redaction (no secrets in logs)
+        env:
+          BOOTSTRAP_SECRET: 'test-bootstrap-secret-do-not-use-in-prod'
+          MONGODB_URI: 'mongodb://localhost:27017/yocore_test'
+          REDIS_URL: 'redis://localhost:6379'
+          YOCORE_KMS_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+          NODE_ENV: 'test'
+        run: pnpm --filter @yocore/api audit:redaction
 
   unit-tests:
     name: Unit tests

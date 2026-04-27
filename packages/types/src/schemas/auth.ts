@@ -50,6 +50,9 @@ export const signupRequestSchema = z.object({
     })
     .optional(),
   marketingOptIn: z.boolean().optional().default(false),
+  /** ToS gate (V1.0-B / B-05): caller echoes current versions when published. */
+  acceptedTosVersion: z.string().min(1).max(20).optional(),
+  acceptedPrivacyVersion: z.string().min(1).max(20).optional(),
 });
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
 
@@ -212,6 +215,9 @@ export const finalizeOnboardingRequestSchema = z.object({
   dateFormat: z.string().min(1).max(32).optional(),
   timeFormat: z.enum(['12h', '24h']).optional(),
   displayName: z.string().trim().min(1).max(80).optional(),
+  /** ToS gate at first onboarding (B-05). */
+  acceptedTosVersion: z.string().min(1).max(20).optional(),
+  acceptedPrivacyVersion: z.string().min(1).max(20).optional(),
 });
 export type FinalizeOnboardingRequest = z.infer<typeof finalizeOnboardingRequestSchema>;
 

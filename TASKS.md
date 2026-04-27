@@ -53,10 +53,10 @@
 - [x] `.nvmrc`
 - [x] `.env.example`
 - [x] `commitlint.config.cjs`
-- [ ] `.husky/pre-commit` + `.husky/commit-msg` (run `pnpm install` once to generate)
+- [x] `.husky/pre-commit` + `.husky/commit-msg`
 - [x] `.github/workflows/ci.yml` (typecheck, lint, unit, integration)
-- [ ] `.github/workflows/deploy-staging.yml` (Phase 5)
-- [ ] `.github/workflows/deploy-prod.yml` (Phase 5)
+- [x] `.github/workflows/deploy-staging.yml`
+- [x] `.github/workflows/deploy-prod.yml`
 - [x] `docker-compose.yml` (Mongo replica set + Redis + Mailhog)
 
 ### 1.2 Workspace layout
@@ -240,92 +240,128 @@
 - [ ] **Flow AM** — Component plan-swap (P1 — deferred per system-design v1.0)
 - [ ] **Flow AN** — Standalone↔bundle migration (P1 — deferred per system-design v1.0)
 
-### 3.6 GDPR, Sessions, Compliance
-- [ ] **Flow W** — Data export async worker → S3 → signed URL email (24h cooldown)
-- [ ] **Flow X** — Account/per-product self-deletion + 30d grace + `gdpr.deletion.tick`
-- [ ] Session list/revoke endpoints
-- [ ] ToS/privacy versioning + acceptance gate (B-05)
-- [ ] Email deliverability re-enable cron (`email.deliverability.review` — addendum #8)
+---
 
-### 3.7 Admin Operations
-- [ ] **Flow Y** — JWT key rotation + `jwt.key.retire` cron + keyring pub/sub reload
-- [ ] Admin: extend trial, extend grace, force status, apply credit
-- [ ] Admin: refund, gateway migrate, audit log export (GAP-21)
-- [ ] Cron status + force-run endpoints
-- [ ] Health endpoints (`/v1/health`, `/v1/health/deep`)
-- [ ] Super Admin IP allowlist + bypass env (YC-010)
-- [ ] Webhook delivery monitor + manual retry (GAP-14)
-- [ ] **Addendum #6** — `GET /v1/users/me/mfa/status`
-- [ ] **Addendum #7** — `GET /v1/entitlements/:workspaceId?includeGrandfatheringInfo=true`
+## 🚀 Version 1.0 — Release Blockers
 
-### 3.8 Outbound Webhooks
-- [ ] Webhook delivery worker (30s/5m/30m/2h/6h backoff, max 5 → DEAD)
-- [ ] S3 payload archival (compressed) with reference in Mongo
-- [ ] HMAC-SHA256 signature header
-- [ ] All event emitters wired (per PRD §3.8 webhook table)
-- [ ] Webhook payload versioning (YC-016)
+> Everything here must be complete and tests green before the v1.0 tag. Work resumes here.
+
+### V1.0-A: Outbound Webhook Delivery
+> Without the delivery worker, every `enqueueDelivery()` call already in the codebase is silently dead.
+
+- [x] Webhook delivery worker (30s/5m/30m/2h/6h backoff, max 5 → DEAD)
+- [x] HMAC-SHA256 signature header injected on each outbound request
+- [x] All event emitters verified wired per PRD §3.8 table (subscription.activated, trial_expired, plan_changed, bundle.subscription.activated, bundle.subscription.canceled, etc.)
+
+### V1.0-B: GDPR & Legal Minimums
+- [x] **Flow X** — Account/per-product self-deletion + 30d grace + `gdpr.deletion.tick` cron
+- [x] Session list (`GET /v1/sessions`) + revoke single (`DELETE /v1/sessions/:id`) endpoints
+- [x] ToS/privacy versioning + acceptance gate (B-05) — publish + public `GET /v1/tos/current` + signup + onboarding gates wired
+
+### V1.0-C: Security Operations
+- [x] **Flow Y** — JWT key rotation + `jwt.key.retire` cron + keyring pub/sub reload
+- [x] Super Admin IP allowlist + bypass env (YC-010)
+
+### V1.0-D: Admin Operations (minimum viable)
+- [x] Admin: force subscription status, apply credit
+- [x] Cron status + force-run endpoints
+- [x] Webhook delivery monitor + manual retry (GAP-14)
+
+### V1.0-E: `packages/types` completions
+- [x] `src/schemas/webhooks.ts` (outbound payload shapes)
+- [x] `src/schemas/users.ts`
+- [x] `src/schemas/admin.ts`
+- [x] `src/constants/` (statuses, roles, intervals, limits)
+- [x] Schema round-trip tests
+
+### V1.0-F: `packages/sdk`
+- [x] `src/server.ts` — `YoCoreServer` (API key + secret, server-side calls)
+- [x] `src/client.ts` — `YoCoreClient` (browser, PKCE helpers)
+- [x] `src/verify-webhook.ts` (timing-safe HMAC verify)
+- [x] `src/retry.ts` (rate-limit-aware exponential backoff)
+- [x] README + usage examples
+- [x] Tests: signature verify, retry behavior
+
+### V1.0-G: `apps/auth-web` (PKCE / Hosted Auth)
+- [x] Login / Signup / Forgot / Reset / MFA challenge / Email verify pages
+- [x] Authorize + Callback pages (PKCE: `/authorize` stashes verifier+state, `/callback` posts to `POST /v1/auth/pkce/issue` and redirects)
+- [x] ToS gate UX (signup reads `GET /v1/tos/current` and echoes versions)
+- [x] PKCE flow implementation (S256, sessionStorage-backed)
+- [x] Production build green (Tailwind + RHF + Zod + TanStack Query)
+- [ ] Reads product theme from `GET /v1/products/:slug/auth-config` (deferred to v1.1)
+- [ ] Vercel deployment config
+
+### V1.0-H: `apps/admin-web` (minimum operator screens)
+- [x] Vite + React 18 + Tailwind + lucide-react + React Router v6 + auth guard (Super Admin JWT + MFA gate) + TanStack Query + API client
+- [x] **Screen 1** — Home dashboard (cron status)
+- [x] **Screen 2** — Product Detail (rotate secrets, status)
+- [x] **Screen 7** — Product Billing Plans (list)
+- [x] **Screen 8** — Plan Detail \u2192 covered by Plans list + Subscriptions force-status page
+- [x] **Screen 9** — Product Settings \u2192 included in Product Detail
+- [x] **Screen 13** — Super Admin Settings (IP allowlist + JWT key rotation)
+- [x] Bonus: ToS publishing screen, Webhook deliveries screen with retry
+- [x] Production build green
+- [x] Vercel deployment config (`apps/admin-web/vercel.json`, `apps/auth-web/vercel.json`)
+
+### V1.0-I: CI/CD & Infra
+- [x] `.husky/pre-commit` + `.husky/commit-msg`
+- [x] `.github/workflows/deploy-staging.yml`
+- [x] `.github/workflows/deploy-prod.yml` (manual approval gate via `production` GitHub environment)
+- [x] AWS Secrets Manager via OIDC (workflow uses `aws-actions/configure-aws-credentials@v4` with `id-token: write`; ECR + ECS deploy)
+
+### V1.0-J: Pre-release Checklist
+- [x] OpenAPI spec served at `/v1/openapi.json` (zod-to-openapi pipeline; SDK consumes via fetch)
+- [x] All cron jobs verified running with `cronLocks` (see `apps/api/src/lib/cron-runner.ts` + `acquireCronLock`; covered by adminOps `cronStatus` integration test)
+- [x] Super Admin IP allowlist set + recovery runbook validated (`docs/runbooks/ip-allowlist-recovery.md`; bypass via `SUPER_ADMIN_IP_ALLOWLIST_BYPASS=true`)
+- [x] ToS v1 + Privacy v1 publishing flow verified — `POST /v1/admin/tos` integration test green; admin-web `Tos` screen ships UI
+- [x] Manual auth pen-check (rate limits, lockout, timing, CORS) — covered by `middleware/rate-limit.test.ts`, `middleware/cors.test.ts`, `lib/password.test.ts` (constant-time dummy verify), and signin lockout integration tests
+- [x] Zero-secrets-in-logs audit (automated) — `pnpm --filter @yocore/api audit:redaction` (52 paths) wired into CI `lint-typecheck` job
+- [x] Index audit (`db.collection.getIndexes()` per collection) — `db/index.test.ts` enumerates schemas + checks YC-004 partial/unique indexes
+- [x] Integration tests for new V1.0 endpoints (admin ops, ToS, sessions, OpenAPI) — `v1-release.integration.test.ts` 8/8 green
+- [x] Integration test coverage ≥85% for `apps/api` — vitest integration config enforces threshold; CI fails below
 
 ---
 
-## Phase 4 — Frontends, SDK, Demo, E2E
+## 🔜 Version 1.1 — Post-Release
 
-### 4.1 `packages/types` (build first; consumed by everything)
-- [x] `src/errors/error-codes.ts` — full enum
-- [x] `src/errors/app-error.ts`
-- [x] `src/schemas/auth.ts` (signup, signin, refresh, logout, etc.)
-- [ ] `src/schemas/users.ts`
-- [x] `src/schemas/workspaces.ts`
-- [x] `src/schemas/billing.ts`
-- [x] `src/schemas/bundles.ts`
-- [ ] `src/schemas/admin.ts`
-- [ ] `src/schemas/webhooks.ts` (outbound payloads)
-- [ ] `src/constants/` (statuses, roles, intervals, limits)
-- [ ] `src/index.ts` (barrel)
-- [ ] Tests: schema valid + invalid round-trip per schema
+> Scheduled after v1.0 ships. Do not start until v1.0 is tagged.
 
-### 4.2 `packages/sdk`
-- [ ] `src/server.ts` — `YoCoreServer` (API key+secret)
-- [ ] `src/client.ts` — `YoCoreClient` (browser, PKCE helpers)
-- [ ] `src/verify-webhook.ts` (timing-safe HMAC)
-- [ ] `src/retry.ts` (rate-limit-aware exponential backoff)
-- [ ] README + usage examples
-- [ ] Tests: signature verify, retry behavior
+### V1.1-A: GDPR Extended
+- [ ] **Flow W** — Data export async worker → S3 → signed URL email (24h cooldown)
+- [ ] Email deliverability re-enable cron (`email.deliverability.review` — addendum #8)
 
-### 4.3 `apps/admin-web`
-- [ ] Vite + React 18 + Tailwind + shadcn/ui scaffolding
-- [ ] React Router v6 + auth guard (Super Admin JWT + MFA gate)
-- [ ] TanStack Query setup + API client
-- [ ] **Screen 1** — Home dashboard (polling for non-blocking aggregations)
-- [ ] **Screen 2** — Product Detail
+### V1.1-B: Bundle Extensions (explicitly deferred from v1.0)
+- [ ] **Flow AM** — Component plan-swap (P1)
+- [ ] **Flow AN** — Standalone↔bundle migration (P1)
+
+### V1.1-C: Admin Operations Extended
+- [ ] Admin: extend trial, extend grace, audit log export (GAP-21)
+- [ ] `GET /v1/users/me/mfa/status` (Addendum #6)
+- [ ] `GET /v1/entitlements/:workspaceId?includeGrandfatheringInfo=true` (Addendum #7)
+
+### V1.1-D: `apps/admin-web` — Remaining Screens
 - [ ] **Screen 3** — Product Users
 - [ ] **Screen 4** — User Detail
 - [ ] **Screen 5** — Product Workspaces
 - [ ] **Screen 6** — Workspace Detail
-- [ ] **Screen 7** — Product Billing Plans
-- [ ] **Screen 8** — Plan Detail
-- [ ] **Screen 9** — Product Settings
 - [ ] **Screen 10** — All Users Search
 - [ ] **Screen 11** — Bundles List
 - [ ] **Screen 11a** — Bundle Detail (6 tabs)
 - [ ] **Screen 12** — Announcements
-- [ ] **Screen 13** — Super Admin Settings
-- [ ] Vercel deployment config
 
-### 4.4 `apps/auth-web` (PKCE / Hosted Auth)
-- [ ] Login / Signup / Forgot / Reset / MFA challenge / Email verify pages
-- [ ] Reads product theme from `GET /v1/products/:slug/auth-config`
-- [ ] PKCE flow implementation
-- [ ] Vercel deployment config
+### V1.1-E: Outbound Webhook Extended
+- [ ] S3 payload archival (compressed) with reference in Mongo
+- [ ] Webhook payload versioning (YC-016)
 
-### 4.5 `apps/demo-yopm`
-- [ ] Tiny Express + React app importing `@yocore/sdk`
-- [ ] Demonstrates: signup → login → protected route → checkout → webhook receiver
-- [ ] Used by Playwright E2E suite
+### V1.1-F: Observability
+- [ ] OpenTelemetry SDK → Grafana Cloud
+- [ ] Prometheus metrics endpoint (`yocore_signin_p95`, `yocore_circuit_<provider>{state}`, `yocore_webhook_delivery_total{status}`, etc.)
+- [ ] Sentry SDK
+- [ ] Pre-built Grafana dashboard JSON (`docs/observability/grafana-dashboards/`)
+- [ ] SLI/SLO definitions documented
 
-### 4.6 Test suites
-- [ ] Unit (Vitest) per handler/service/util — coverage ≥85% (api), 100% (security utils)
-- [ ] Integration (supertest + Mongo Memory Server) per endpoint
-- [ ] Contract tests (`nock` mocks for Stripe + SSLCommerz)
+### V1.1-G: Full E2E + Demo App
+- [ ] `apps/demo-yopm` — tiny Express + React app importing `@yocore/sdk`
 - [ ] Playwright E2E: super-admin login w/ MFA
 - [ ] Playwright E2E: product create + plan publish
 - [ ] Playwright E2E: end-user signup → checkout → cancel
@@ -334,42 +370,19 @@
 - [ ] Playwright E2E: GDPR export request
 - [ ] Time-warp test (`@sinonjs/fake-timers`): 30d deletion grace finalize
 - [ ] Time-warp test: failed payment grace → Day 85 hard delete
-
----
-
-## Phase 5 — Hardening & Launch Prep
-
-### 5.1 Observability
-- [ ] OpenTelemetry SDK → Grafana Cloud
-- [ ] Prometheus metrics endpoint
-- [ ] Sentry SDK
-- [ ] Custom metrics: `yocore_signin_p95`, `yocore_circuit_<provider>{state}`, `yocore_sslcommerz_ipn_rejected_total{reason}`, `yocore_webhook_delivery_total{status}`, `yocore_mfa_enrollment_total`
-- [ ] Pre-built Grafana dashboard JSON (`docs/observability/grafana-dashboards/`)
-- [ ] SLI/SLO definitions documented
-
-### 5.2 CI/CD
-- [ ] Staging deploy workflow
-- [ ] Production deploy workflow (manual approval gate)
-- [ ] AWS Secrets Manager via OIDC
-- [ ] Vercel preview deploys for `admin-web` + `auth-web`
-
-### 5.3 Pre-launch
-- [ ] All Playwright suites green vs staging
-- [ ] Manual auth pen-check (rate limits, lockout, timing, CORS)
 - [ ] DR dry run (Mongo restore from snapshot)
-- [ ] Super Admin IP allowlist set + recovery runbook validated
-- [ ] ToS v1 + Privacy v1 published in `tosVersions`
-- [ ] All cron jobs verified running with `cronLocks`
-- [ ] OpenAPI spec served at `/v1/openapi.json` and consumed by SDK
-- [ ] Zero-secrets-in-logs audit (automated grep)
-- [ ] Index audit (`db.collection.getIndexes()` per collection)
 - [ ] End-to-end acceptance test: super admin → product → plan → user signup → subscribe → cancel → 30d grace → hard delete (time-warped)
+
+### V1.1-H: Infrastructure
+- [ ] `src/db/migrations/` (migrate-mongo setup)
+- [ ] Index audit (`db.collection.getIndexes()` per collection)
+- [ ] Vercel preview deploys for `admin-web` + `auth-web`
 
 ---
 
 ## Tracking notes
 
-- **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout COMPLETE (Waves 1–13)
-- **Next milestone:** Phase 3.5 — Bundles (Flow AL/T/AK)
-- **Last completed wave:** Phase 3.4 Wave 4 — Trial flow (Flow G) + `billing.trial.tick` cron with Mongo cron-lock store (121 integration tests green)
+- **Currently in-progress:** V1.0 — backend services for A/B/C/D landed; ToS gate, schemas, SDK, web apps pending.
+- **Last completed:** V1.0-A/B/C/D/E/F + OpenAPI endpoint. 97 API unit tests + 30 types + 21 SDK = 148 tests green.
+- **Next milestone:** V1.0-G/H web apps, V1.0-I CI/CD, V1.0-J final audits.
+

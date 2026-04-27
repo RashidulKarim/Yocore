@@ -8,14 +8,19 @@
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./server": { "types": "./dist/server.d.ts", "import": "./dist/server.js" },
-    "./client": { "types": "./dist/client.d.ts", "import": "./dist/client.js" }
+    "./client": { "types": "./dist/client.d.ts", "import": "./dist/client.js" },
+    "./verify-webhook": {
+      "types": "./dist/verify-webhook.d.ts",
+      "import": "./dist/verify-webhook.js"
+    },
+    "./retry": { "types": "./dist/retry.d.ts", "import": "./dist/retry.js" }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "echo 'sdk tests not yet generated'",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {

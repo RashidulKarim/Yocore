@@ -44,3 +44,41 @@ export function createMongoCronLockStore(
     },
   };
 }
+
+/** Diagnostic — return the latest lock row per jobName for cron-status admin endpoint. */
+export async function listLatestLocks(): Promise<
+  Array<{
+    jobName: string;
+    lastDateKey: string | null;
+    lastLockedAt: Date | null;
+    lastCompletedAt: Date | null;
+    lastInstanceId: string | null;
+  }>
+> {
+  const rows = await CronLock.aggregate<{
+    _id: string;
+    lastDateKey: string;
+    lastLockedAt: Date;
+    lastCompletedAt: Date | null;
+    lastInstanceId: string | null;
+  }>([
+    { $sort: { lockedAt: -1 } },
+    {
+      $group: {
+        _id: '$jobName',
+        lastDateKey: { $first: '$dateKey' },
+        lastLockedAt: { $first: '$lockedAt' },
+        lastCompletedAt: { $first: '$completedAt' },
+        lastInstanceId: { $first: '$lockedByInstanceId' },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+  return rows.map((r) => ({
+    jobName: r._id,
+    lastDateKey: r.lastDateKey,
+    lastLockedAt: r.lastLockedAt,
+    lastCompletedAt: r.lastCompletedAt,
+    lastInstanceId: r.lastInstanceId,
+  }));
+}

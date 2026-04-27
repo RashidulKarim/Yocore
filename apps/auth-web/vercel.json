@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd ../.. && pnpm --filter @yocore/auth-web build",
+  "outputDirectory": "dist",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

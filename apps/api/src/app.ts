@@ -18,6 +18,7 @@ import { securityHeadersMiddleware } from './middleware/security-headers.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
+import { superAdminIpAllowlistMiddleware } from './middleware/super-admin-ip.js';
 import { buildRouter } from './router.js';
 import type { AppContext } from './context.js';
 
@@ -26,6 +27,8 @@ export interface CreateAppOptions {
   trustProxy?: boolean | number | string;
   /** Global CORS allow-list (used by product-less endpoints: health, hosted auth). */
   globalAllowOrigins?: readonly string[];
+  /** Force-disable IP allowlist (recovery / tests). */
+  disableIpAllowlist?: boolean;
 }
 
 export function createApp(opts: CreateAppOptions): Express {
@@ -54,6 +57,14 @@ export function createApp(opts: CreateAppOptions): Express {
     }),
   );
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+  // IP allowlist gate for /v1/admin/* (excluding bootstrap).
+  app.use(
+    superAdminIpAllowlistMiddleware({
+      redis: opts.ctx.redis,
+      disable: opts.disableIpAllowlist === true,
+    }),
+  );
 
   app.use(buildRouter({ ctx: opts.ctx }));
 

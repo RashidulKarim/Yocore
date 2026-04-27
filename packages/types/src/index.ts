@@ -5,5 +5,8 @@ export * from './schemas/workspaces.js';
 export * from './schemas/products.js';
 export * from './schemas/billing.js';
 export * from './schemas/bundles.js';
+export * from './schemas/admin.js';
+export * from './schemas/users.js';
+export * from './schemas/webhooks.js';
 export * from './constants/index.js';
 export * from './constants/permissions.js';

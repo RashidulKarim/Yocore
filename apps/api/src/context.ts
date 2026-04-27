@@ -111,6 +111,21 @@ import {
 import { createBundleService, type BundleService, type StripeBundlePriceApi } from './services/bundle.service.js';
 import { createBundleCheckoutService, type BundleCheckoutService } from './services/bundle-checkout.service.js';
 import { createBundleCascadeService, type BundleCascadeService } from './services/bundle-cascade.service.js';
+import {
+  createWebhookDeliveryService,
+  type WebhookDeliveryService,
+  type DeliveryHttpClient,
+} from './services/webhook-delivery.service.js';
+import { createAdminOpsService, type AdminOpsService } from './services/admin-ops.service.js';
+import {
+  createJwtRotationService,
+  type JwtRotationService,
+  KEYRING_RELOAD_CHANNEL,
+} from './services/jwt-rotation.service.js';
+import {
+  createSelfDeletionService,
+  type SelfDeletionService,
+} from './services/self-deletion.service.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -156,6 +171,10 @@ export interface AppContext {
   bundle: BundleService;
   bundleCheckout: BundleCheckoutService;
   bundleCascade: BundleCascadeService;
+  webhookDelivery: WebhookDeliveryService;
+  adminOps: AdminOpsService;
+  jwtRotation: JwtRotationService;
+  gdprDeletion: SelfDeletionService;
 }
 
 export interface CreateAppContextOptions {
@@ -191,6 +210,8 @@ export interface CreateAppContextOptions {
   stripeCancelApi?: StripeCancelApi;
   /** Override Stripe bundle-price API (tests). */
   stripeBundlePriceApi?: StripeBundlePriceApi;
+  /** Override outbound webhook HTTP client (tests). */
+  webhookHttpClient?: DeliveryHttpClient;
 }
 
 export async function createAppContext(opts: CreateAppContextOptions = {}): Promise<AppContext> {
@@ -306,6 +327,30 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     ...(opts.stripeApi ? { stripeApi: opts.stripeApi } : {}),
   });
   const bundleCascade = createBundleCascadeService({ auditStore });
+  const webhookDelivery = createWebhookDeliveryService({
+    ...(opts.webhookHttpClient ? { httpClient: opts.webhookHttpClient } : {}),
+  });
+  const adminOps = createAdminOpsService({ webhookDelivery });
+  const jwtRotation = createJwtRotationService({
+    redis,
+    keyring,
+    auditStore,
+  });
+
+  // Listen for keyring reload broadcasts from peer pods.
+  if (!opts.keyring) {
+    const sub = redis.duplicate();
+    sub
+      .subscribe(KEYRING_RELOAD_CHANNEL)
+      .then(() => {
+        sub.on('message', () => {
+          void keyring.reload().catch(() => undefined);
+        });
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+  }
 
   // Re-create stripeWebhook now that bundleCheckout exists, so it can dispatch
   // bundle checkout.session.completed events to the bundle handler.
@@ -351,5 +396,9 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     bundle,
     bundleCheckout,
     bundleCascade,
+    webhookDelivery,
+    adminOps,
+    jwtRotation,
+    gdprDeletion: createSelfDeletionService(),
   };
 }

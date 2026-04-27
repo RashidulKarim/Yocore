@@ -140,3 +140,19 @@ export async function swapJti(input: {
   );
   return res.modifiedCount === 1;
 }
+
+/** List active (non-revoked, not-expired) sessions for a user. */
+export async function listActiveByUser(userId: string): Promise<SessionLean[]> {
+  return Session.find({
+    userId,
+    revokedAt: null,
+    refreshExpiresAt: { $gt: new Date() },
+  })
+    .sort({ lastUsedAt: -1 })
+    .lean<SessionLean[]>();
+}
+
+/** Find a session by id (no productId scoping; userId check enforces ownership). */
+export async function findById(sessionId: string): Promise<SessionLean | null> {
+  return Session.findById(sessionId).lean<SessionLean | null>();
+}

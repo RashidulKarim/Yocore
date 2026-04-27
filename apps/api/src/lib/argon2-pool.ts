@@ -13,6 +13,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import argon2 from 'argon2';
 import { Piscina } from 'piscina';
 import { env } from '../config/env.js';
@@ -42,10 +43,15 @@ let pool: Piscina | undefined;
 function getPool(): Piscina {
   if (pool) return pool;
   const here = path.dirname(fileURLToPath(import.meta.url));
-  // The compiled worker is emitted alongside this file as argon2-worker.js.
-  const filename = path.join(here, 'argon2-worker.js');
+  // In production the compiled worker is emitted as argon2-worker.js.
+  // In dev (tsx watch) only the .ts source exists — use it with the tsx loader.
+  const jsFile = path.join(here, 'argon2-worker.js');
+  const tsFile = path.join(here, 'argon2-worker.ts');
+  const useTs = !existsSync(jsFile) && existsSync(tsFile);
+  const filename = useTs ? tsFile : jsFile;
   pool = new Piscina({
     filename,
+    ...(useTs ? { execArgv: ['--import', 'tsx'] } : {}),
     minThreads: env.ARGON2_POOL_SIZE,
     maxThreads: env.ARGON2_POOL_SIZE,
     idleTimeout: 30_000,

@@ -116,3 +116,25 @@ export async function updateEmail(userId: string, newEmail: string): Promise<voi
     },
   );
 }
+
+/**
+ * Persist Terms of Service + Privacy Policy acceptance versions on the
+ * global User document (B-05). Called from signup + finalize-onboarding
+ * after the input versions are validated against `tosVersions.isCurrent`.
+ */
+export async function recordTosAcceptance(
+  userId: string,
+  input: { tosVersion: string; privacyVersion: string; acceptedAt: Date },
+): Promise<void> {
+  await User.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        tosVersion: input.tosVersion,
+        tosAcceptedAt: input.acceptedAt,
+        privacyPolicyVersion: input.privacyVersion,
+        privacyPolicyAcceptedAt: input.acceptedAt,
+      },
+    },
+  );
+}

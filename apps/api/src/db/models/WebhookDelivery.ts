@@ -10,6 +10,7 @@ const webhookDeliverySchema = new Schema(
     eventId: { type: String, required: true },
     url: { type: String, required: true },
     payloadRef: { type: String, required: true },
+    payload: { type: Schema.Types.Mixed, default: null },
     signatureHeader: { type: String, default: null },
     status: {
       type: String,
@@ -18,24 +19,30 @@ const webhookDeliverySchema = new Schema(
     },
     attempts: {
       type: [
-        {
-          _id: false,
-          at: Date,
-          statusCode: Number,
-          durationMs: Number,
-          error: String,
-        },
+        new Schema(
+          {
+            at: { type: Date, required: true },
+            statusCode: { type: Number, default: null },
+            durationMs: { type: Number, default: null },
+            error: { type: String, default: null },
+          },
+          { _id: false },
+        ),
       ],
       default: [],
     },
     attemptCount: { type: Number, default: 0 },
     nextRetryAt: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
+    lastError: { type: String, default: null },
+    lockedUntil: { type: Date, default: null },
   },
-  { timestamps: { createdAt: true, updatedAt: false }, collection: 'webhookDeliveries' },
+  { timestamps: { createdAt: true, updatedAt: true }, collection: 'webhookDeliveries' },
 );
 
+webhookDeliverySchema.index({ status: 1, nextRetryAt: 1 });
 webhookDeliverySchema.index({ productId: 1, status: 1, nextRetryAt: 1 });
+webhookDeliverySchema.index({ productId: 1, createdAt: -1 });
 webhookDeliverySchema.index({ eventId: 1 }, { unique: true });
 webhookDeliverySchema.index({ createdAt: 1 }, { expireAfterSeconds: 7_776_000 }); // 90d
 

@@ -44,10 +44,16 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
 
   // Email
-  EMAIL_PROVIDER: z.enum(['resend', 'ses']).default('resend'),
+  EMAIL_PROVIDER: z.enum(['resend', 'ses', 'smtp', 'console']).default('resend'),
   RESEND_API_KEY: z.string().optional(),
   SES_REGION: z.string().default('us-east-1'),
   EMAIL_FROM_DEFAULT: z.string().email().default('noreply@notifications.yocore.io'),
+  // SMTP (used with EMAIL_PROVIDER=smtp, e.g. Mailhog in local dev)
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
 
   // AWS
   AWS_REGION: z.string().default('us-east-1'),

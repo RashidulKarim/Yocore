@@ -31,6 +31,7 @@ import * as userRepo from '../repos/user.repo.js';
 import * as productUserRepo from '../repos/product-user.repo.js';
 import * as authTokenRepo from '../repos/auth-token.repo.js';
 import * as emailQueueRepo from '../repos/email-queue.repo.js';
+import * as tosService from './tos.service.js';
 
 /** 24 hours, per Flow F (`expiresAt:now+24h`). */
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60;
@@ -48,6 +49,9 @@ export interface SignupInput {
   name?: { first?: string | undefined; last?: string | undefined } | undefined;
   marketingOptIn?: boolean | undefined;
   ip: string | null;
+  /** ToS gate (B-05) — caller must echo currently-published versions. */
+  acceptedTosVersion?: string | undefined;
+  acceptedPrivacyVersion?: string | undefined;
 }
 
 export interface SignupOutcome {
@@ -63,6 +67,26 @@ export function createSignupService(deps: SignupServiceDeps) {
   const clock = deps.clock ?? systemClock;
 
   async function signup(input: SignupInput): Promise<SignupOutcome> {
+    // 0) ToS / Privacy gate (B-05) — fail fast before any DB writes when a
+    // current version is published. If both fields are omitted and no current
+    // version is published, this is a no-op (accepted = null).
+    let accepted: { tosVersion: string; privacyVersion: string } | null = null;
+    const current = await tosService.getCurrent();
+    const tosRequired = current.termsOfService !== null;
+    const privacyRequired = current.privacyPolicy !== null;
+    if (tosRequired || privacyRequired) {
+      if (!input.acceptedTosVersion || !input.acceptedPrivacyVersion) {
+        throw new AppError(
+          ErrorCode.TOS_NOT_ACCEPTED,
+          'Terms of Service and Privacy Policy must be accepted',
+        );
+      }
+      accepted = await tosService.assertAccepted({
+        acceptedTosVersion: input.acceptedTosVersion,
+        acceptedPrivacyVersion: input.acceptedPrivacyVersion,
+      });
+    }
+
     // 1) Resolve product by slug.
     const product = await productRepo.findProductBySlug(input.productSlug);
     if (!product || product.status !== 'ACTIVE') {
@@ -142,6 +166,15 @@ export function createSignupService(deps: SignupServiceDeps) {
       emailVerified: false,
       emailVerifiedMethod: null,
     });
+
+    // Persist ToS / Privacy acceptance on the global user (B-05).
+    if (accepted) {
+      await userRepo.recordTosAcceptance(user._id, {
+        tosVersion: accepted.tosVersion,
+        privacyVersion: accepted.privacyVersion,
+        acceptedAt: now,
+      });
+    }
 
     await productUserRepo.createProductUser({
       productId: product._id,

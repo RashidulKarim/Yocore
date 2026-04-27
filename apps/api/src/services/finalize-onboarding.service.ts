@@ -17,6 +17,7 @@ import * as productUserRepo from '../repos/product-user.repo.js';
 import * as workspaceRepo from '../repos/workspace.repo.js';
 import * as workspaceMemberRepo from '../repos/workspace-member.repo.js';
 import * as roleRepo from '../repos/role.repo.js';
+import * as tosService from './tos.service.js';
 
 /**
  * Built-in OWNER role identifiers. These platform rows are seeded on demand
@@ -34,6 +35,9 @@ export interface FinalizeOnboardingInput {
   dateFormat?: string;
   timeFormat?: '12h' | '24h';
   displayName?: string;
+  /** Optional re-affirmation of ToS / Privacy versions at first onboarding (B-05). */
+  acceptedTosVersion?: string;
+  acceptedPrivacyVersion?: string;
 }
 
 export interface FinalizeOnboardingOutcome {
@@ -61,6 +65,34 @@ export async function finalizeOnboarding(
   if (!user) throw new AppError(ErrorCode.USER_NOT_FOUND, 'User not found');
   if (!user.emailVerified) {
     throw new AppError(ErrorCode.AUTH_EMAIL_NOT_VERIFIED, 'Email not verified');
+  }
+
+  // ToS / Privacy gate (B-05) — only enforced when a current version is
+  // published. When published, the user must have already accepted (e.g. on
+  // signup) OR re-affirm here. When no version is published, this is a no-op.
+  const current = await tosService.getCurrent();
+  const tosPublished = current.termsOfService !== null || current.privacyPolicy !== null;
+  if (tosPublished) {
+    const needsAcceptance = !user.tosVersion || !user.privacyPolicyVersion;
+    if (needsAcceptance) {
+      if (!input.acceptedTosVersion || !input.acceptedPrivacyVersion) {
+        throw new AppError(
+          ErrorCode.TOS_NOT_ACCEPTED,
+          'Terms of Service and Privacy Policy must be accepted before onboarding',
+        );
+      }
+    }
+    if (input.acceptedTosVersion && input.acceptedPrivacyVersion) {
+      const accepted = await tosService.assertAccepted({
+        acceptedTosVersion: input.acceptedTosVersion,
+        acceptedPrivacyVersion: input.acceptedPrivacyVersion,
+      });
+      await userRepo.recordTosAcceptance(input.userId, {
+        tosVersion: accepted.tosVersion,
+        privacyVersion: accepted.privacyVersion,
+        acceptedAt: new Date(),
+      });
+    }
   }
 
   const pu = await productUserRepo.findByUserAndProduct(input.productId, input.userId);

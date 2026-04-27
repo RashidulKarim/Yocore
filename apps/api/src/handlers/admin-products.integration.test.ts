@@ -330,7 +330,7 @@ describe('Phase 3.3 — admin products & gateways', () => {
       const productId = create.body.product.id;
 
       const act = await request(app)
-        .patch(`/v1/admin/products/${productId}/status`)
+        .post(`/v1/admin/products/${productId}/status`)
         .set('Authorization', `Bearer ${token}`)
         .send({ status: 'ACTIVE' });
       expect(act.status).toBe(200);
