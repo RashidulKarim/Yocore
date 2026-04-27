@@ -145,3 +145,64 @@ export async function restoreVoluntaryDeletion(
     { new: true },
   ).lean<WorkspaceLean | null>();
 }
+
+// ── Trial lifecycle (Flow G — Phase 3.4 Wave 4) ─────────────────────────
+
+/** Reset trial-warning bookkeeping for a workspace at trial-start. */
+export async function resetTrialWarnings(
+  productId: string,
+  workspaceId: string,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId },
+    {
+      $set: {
+        trialConverted: false,
+        'trialWarningSent.days3': false,
+        'trialWarningSent.days1': false,
+      },
+    },
+  );
+}
+
+/** Mark a single trial-warning email bucket as sent (idempotent). */
+export async function markTrialWarningSent(
+  productId: string,
+  workspaceId: string,
+  bucket: 'days3' | 'days1',
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId },
+    { $set: { [`trialWarningSent.${bucket}`]: true } },
+  );
+}
+
+/** Flag a workspace as having converted its trial (Scenario A). */
+export async function setTrialConverted(
+  productId: string,
+  workspaceId: string,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId },
+    { $set: { trialConverted: true } },
+  );
+}
+
+/** Suspend a workspace because its trial expired without payment (Scenario B). */
+export async function suspendForTrialExpiry(
+  productId: string,
+  workspaceId: string,
+  at: Date,
+): Promise<void> {
+  await Workspace.updateOne(
+    { productId, _id: workspaceId, status: 'ACTIVE' },
+    {
+      $set: {
+        suspended: true,
+        suspensionDate: at,
+        suspensionReason: 'trial_expired',
+        status: 'SUSPENDED',
+      },
+    },
+  );
+}

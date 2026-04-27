@@ -65,6 +65,12 @@ import {
   type SslcommerzWebhookService,
 } from './services/sslcommerz-webhook.service.js';
 import type { SslcommerzGatewayApi } from './services/sslcommerz-api.js';
+import { createTrialService, type TrialService } from './services/trial.service.js';
+import {
+  createChangePlanService,
+  type ChangePlanService,
+  type StripePlanApi,
+} from './services/change-plan.service.js';
 import { auditLogRepo } from './repos/audit-log.repo.js';
 import { env } from './config/env.js';
 import { getRedis } from './config/redis.js';
@@ -97,6 +103,8 @@ export interface AppContext {
   checkout: CheckoutService;
   stripeWebhook: StripeWebhookService;
   sslcommerzWebhook: SslcommerzWebhookService;
+  trial: TrialService;
+  changePlan: ChangePlanService;
 }
 
 export interface CreateAppContextOptions {
@@ -118,6 +126,8 @@ export interface CreateAppContextOptions {
   sslcommerzApi?: SslcommerzGatewayApi;
   /** Override clock for webhook timestamp tolerance (tests). */
   webhookNow?: () => Date;
+  /** Override Stripe plan-change API (tests). */
+  stripePlanApi?: StripePlanApi;
 }
 
 export async function createAppContext(opts: CreateAppContextOptions = {}): Promise<AppContext> {
@@ -197,6 +207,13 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
   const sslcommerzWebhook = createSslcommerzWebhookService({
     ...(opts.sslcommerzApi ? { sslcommerzApi: opts.sslcommerzApi } : {}),
   });
+  const trial = createTrialService({
+    auditStore,
+    defaultFromAddress: env.EMAIL_FROM_DEFAULT,
+  });
+  const changePlan = createChangePlanService({
+    ...(opts.stripePlanApi ? { stripePlanApi: opts.stripePlanApi } : {}),
+  });
 
   return {
     redis,
@@ -221,5 +238,7 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     checkout,
     stripeWebhook,
     sslcommerzWebhook,
+    trial,
+    changePlan,
   };
 }

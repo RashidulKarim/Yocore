@@ -94,6 +94,7 @@
 | `BILLING_SUBSCRIPTION_NOT_ACTIVE` | 409 | Operation requires active sub |
 | `BILLING_PLAN_NOT_PUBLISHED` | 409 | Plan still DRAFT or ARCHIVED |
 | `BILLING_PLAN_IMMUTABLE` | 409 | Cannot edit price/currency on ACTIVE plan |
+| `BILLING_PLAN_MEMBER_OVERFLOW` | 402 | Target plan's `limits.maxMembers` is below the workspace's current active member count (Flow R / AE) |
 | `BILLING_TRIAL_INELIGIBLE` | 409 | User already used trial |
 | `BILLING_DOWNGRADE_BLOCKED` | 409 | Current usage > new plan limits |
 | `BILLING_COUPON_INVALID` | 422 | Code not found / expired / scope mismatch |

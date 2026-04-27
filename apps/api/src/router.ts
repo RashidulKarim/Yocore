@@ -99,6 +99,17 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   // ─── Billing: Checkout (Phase 3.4 Wave 2 — Flow J1) ─────────────
   const billing = billingHandlerFactory(ctx);
   router.post('/v1/billing/checkout', requireJwt, billing.checkout);
+  router.post('/v1/billing/trial/start', requireJwt, billing.startTrial);
+  router.get(
+    '/v1/billing/subscription/change-plan/preview',
+    requireJwt,
+    billing.previewChangePlan,
+  );
+  router.post(
+    '/v1/billing/subscription/change-plan',
+    requireJwt,
+    billing.applyChangePlan,
+  );
 
   // ─── Webhooks (Phase 3.4 Wave 2 — Flow J1.6 / Wave 3 — Flow J4.8) ─
   const webhooks = webhookHandlerFactory(ctx);

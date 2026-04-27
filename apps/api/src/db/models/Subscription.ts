@@ -72,18 +72,38 @@ const subscriptionSchema = new Schema(
     isBundleParent: { type: Boolean, default: false },
     bundleSubscriptionId: { type: String, default: null },
 
+    // Wave 5 — scheduled plan change (used for SSLCommerz next-renewal swaps
+    // and for Flow AO grace-period auto-downgrades).
+    pendingPlanChange: {
+      type: new Schema(
+        {
+          newPlanId: { type: String, required: true },
+          newAmount: { type: Number, required: true },
+          newCurrency: { type: String, required: true, lowercase: true },
+          scheduledFor: { type: Date, required: true },
+          requestedAt: { type: Date, required: true },
+          requestedBy: { type: String, default: null },
+          reason: { type: String, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+
     changeHistory: {
       type: [
-        {
-          _id: false,
-          changedAt: Date,
-          changedBy: String,
-          type: String,
-          before: Schema.Types.Mixed,
-          after: Schema.Types.Mixed,
-          reason: String,
-          correlationId: String,
-        },
+        new Schema(
+          {
+            changedAt: { type: Date, required: true },
+            changedBy: { type: String, required: true },
+            type: { type: String, required: true },
+            before: { type: Schema.Types.Mixed, default: null },
+            after: { type: Schema.Types.Mixed, default: null },
+            reason: { type: String, default: null },
+            correlationId: { type: String, default: null },
+          },
+          { _id: false },
+        ),
       ],
       default: [],
     },

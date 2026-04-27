@@ -5,6 +5,9 @@ import { getRedis, disconnectRedis } from './config/redis.js';
 import { destroyAwsClients } from './config/aws.js';
 import { logger } from './lib/logger.js';
 import { createAppContext } from './context.js';
+import { CronRunner } from './lib/cron-runner.js';
+import { createMongoCronLockStore } from './repos/cron-lock.repo.js';
+import os from 'node:os';
 
 async function bootstrap(): Promise<void> {
   await connectMongo();
@@ -16,6 +19,25 @@ async function bootstrap(): Promise<void> {
   const server = app.listen(env.PORT, () => {
     logger.info({ event: 'http.listening', port: env.PORT }, `API listening on :${env.PORT}`);
   });
+
+  // ── Cron registry (Phase 3.4 Wave 4 — Flow G) ─────────────────────────
+  const cronStore = createMongoCronLockStore({ instanceId: `${os.hostname()}.${process.pid}` });
+  const cron = new CronRunner({ store: cronStore });
+  cron.register({
+    name: 'billing.trial.tick',
+    schedule: 'hourly',
+    dateKey: () => {
+      const d = new Date();
+      // Hourly bucket so each pod converges on one run/hr.
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}`;
+    },
+    lockTtlMs: 15 * 60 * 1000,
+    handler: () => ctx.trial.runTrialTick().then(() => undefined),
+  });
+  const cronTimer = setInterval(() => {
+    void cron.runOnce('billing.trial.tick');
+  }, 5 * 60 * 1000);
+  cronTimer.unref();
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {

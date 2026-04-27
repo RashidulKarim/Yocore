@@ -222,8 +222,8 @@
 - [x] Public plan endpoint (cached 5m, YC-015)
 - [x] **Flow J** — Stripe checkout + webhook handlers (`webhookEventsProcessed` dedup)
 - [x] **Flow J (SSLCommerz)** — Two-step IPN flow + Stripe-as-billing-calendar
-- [ ] **Flow G** — Trial flow + `billing.trial.tick` cron
-- [ ] **Flow R / AE** — Plan upgrade/downgrade + preview + seat-overflow guard
+- [x] **Flow G** — Trial flow + `billing.trial.tick` cron
+- [x] **Flow R / AE** — Plan upgrade/downgrade + preview + seat-overflow guard
 - [ ] **Flow S** — Seat change
 - [ ] **Flow AC** — Pause/resume
 - [ ] **Flow AF** — Coupon validation + redemption
@@ -370,6 +370,6 @@
 ## Tracking notes
 
 - **Blocked items:** none (initial state)
-- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout (Wave 3 SSLCommerz done; next: Trial flow + cron)
-- **Next milestone:** Flow G — Trial flow + `billing.trial.tick` cron
-- **Last completed wave:** Phase 3.4 Wave 3 — SSLCommerz checkout + IPN (Flow J4) with Stripe-as-billing-calendar (115 integration tests green)
+- **Currently in-progress:** Phase 3.4 — Plans/Subscriptions/Checkout (Wave 5 plan change R/AE done; next: Wave 6 seat change S)
+- **Next milestone:** Flow S — Seat change (quantity update + proration)
+- **Last completed wave:** Phase 3.4 Wave 4 — Trial flow (Flow G) + `billing.trial.tick` cron with Mongo cron-lock store (121 integration tests green)

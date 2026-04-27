@@ -256,3 +256,157 @@ export async function markPastDue(subscriptionId: string): Promise<void> {
     { $set: { status: 'PAST_DUE' } },
   );
 }
+
+// ── Trial flow (Flow G — Phase 3.4 Wave 4) ────────────────────────────
+
+export interface CreateTrialingInput {
+  productId: string;
+  planId: string;
+  subjectType: 'user' | 'workspace';
+  subjectUserId?: string | null;
+  subjectWorkspaceId?: string | null;
+  amount: number;
+  currency: string;
+  quantity?: number;
+  trialStartsAt: Date;
+  trialEndsAt: Date;
+}
+
+/** Create a TRIALING subscription with no gateway attached (Flow G Path 2). */
+export async function createTrialing(
+  input: CreateTrialingInput,
+): Promise<SubscriptionLean> {
+  const doc = await Subscription.create({
+    productId: input.productId,
+    planId: input.planId,
+    subjectType: input.subjectType,
+    subjectUserId: input.subjectUserId ?? null,
+    subjectWorkspaceId: input.subjectWorkspaceId ?? null,
+    gateway: null,
+    gatewayRefs: {},
+    status: 'TRIALING',
+    amount: input.amount,
+    currency: input.currency.toLowerCase(),
+    quantity: input.quantity ?? 1,
+    currentPeriodStart: input.trialStartsAt,
+    currentPeriodEnd: input.trialEndsAt,
+    trialStartsAt: input.trialStartsAt,
+    trialEndsAt: input.trialEndsAt,
+  });
+  return doc.toObject() as SubscriptionLean;
+}
+
+/** TRIALING subscriptions whose trial ends before `before`. Used by the
+ *  cron for both warning emails (`before = now + 3d`) and expiry
+ *  (`before = now`). Cross-tenant (the cron is global). */
+export async function listTrialingDueBefore(before: Date): Promise<SubscriptionLean[]> {
+  return Subscription.find({
+    status: 'TRIALING',
+    trialEndsAt: { $lte: before, $ne: null },
+  })
+    .sort({ trialEndsAt: 1 })
+    .limit(500)
+    .lean<SubscriptionLean[]>();
+}
+
+/** Cancel a TRIALING subscription that expired without a payment method
+ *  (Flow G Path 2 Scenario B). Conditional on status to avoid races. */
+export async function cancelTrialNoPaymentMethod(
+  subscriptionId: string,
+  at: Date,
+): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: subscriptionId, status: 'TRIALING' },
+    {
+      $set: {
+        status: 'CANCELED',
+        canceledAt: at,
+        cancelReason: 'trial_no_payment_method',
+      },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+// ── Plan change (Flow R / AE — Phase 3.4 Wave 5) ──────────────────────
+
+export interface ChangeHistoryEntry {
+  changedAt: Date;
+  changedBy: string;
+  type: 'plan_change' | 'plan_change_scheduled' | 'plan_archival_forced_downgrade';
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  reason?: string | null;
+  correlationId?: string | null;
+}
+
+/** Apply a plan change immediately (Stripe path). Updates planId/amount/
+ *  currency, optional gateway-ref patches, and pushes a `changeHistory`
+ *  entry. Clears any prior `pendingPlanChange`. */
+export async function applyPlanChange(args: {
+  productId: string;
+  subscriptionId: string;
+  newPlanId: string;
+  newAmount: number;
+  newCurrency: string;
+  currentPeriodEnd?: Date | null;
+  gatewayRefsPatch?: Record<string, unknown>;
+  history: ChangeHistoryEntry;
+}): Promise<SubscriptionLean | null> {
+  const set: Record<string, unknown> = {
+    planId: args.newPlanId,
+    amount: args.newAmount,
+    currency: args.newCurrency.toLowerCase(),
+    pendingPlanChange: null,
+  };
+  if (args.currentPeriodEnd !== undefined) {
+    set['currentPeriodEnd'] = args.currentPeriodEnd;
+  }
+  if (args.gatewayRefsPatch) {
+    for (const [k, v] of Object.entries(args.gatewayRefsPatch)) {
+      set[`gatewayRefs.${k}`] = v;
+    }
+  }
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: set,
+      $push: { changeHistory: args.history },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}
+
+/** Schedule a plan change for the next renewal (SSLCommerz path).
+ *  Records a `pendingPlanChange` blob + appends a `plan_change_scheduled`
+ *  history entry. Does NOT mutate the live `planId/amount`. */
+export async function setPendingPlanChange(args: {
+  productId: string;
+  subscriptionId: string;
+  newPlanId: string;
+  newAmount: number;
+  newCurrency: string;
+  scheduledFor: Date;
+  requestedBy: string;
+  reason?: string | null;
+  history: ChangeHistoryEntry;
+}): Promise<SubscriptionLean | null> {
+  return Subscription.findOneAndUpdate(
+    { _id: args.subscriptionId, productId: args.productId },
+    {
+      $set: {
+        pendingPlanChange: {
+          newPlanId: args.newPlanId,
+          newAmount: args.newAmount,
+          newCurrency: args.newCurrency.toLowerCase(),
+          scheduledFor: args.scheduledFor,
+          requestedAt: new Date(),
+          requestedBy: args.requestedBy,
+          reason: args.reason ?? null,
+        },
+      },
+      $push: { changeHistory: args.history },
+    },
+    { new: true },
+  ).lean<SubscriptionLean | null>();
+}

@@ -222,6 +222,34 @@ export const checkoutSessionResponseSchema = z.object({
 });
 export type CheckoutSessionResponse = z.infer<typeof checkoutSessionResponseSchema>;
 
+// ──────────────────────────────────────────────────────────────────────
+// Wave 4 — Trial flow (Flow G — Path 2: Free trial)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * `POST /v1/billing/trial/start` — start a free trial on a paid plan.
+ *
+ * Creates a TRIALING subscription with `gateway:null` (no payment method
+ * collected upfront). The `billing.trial.tick` cron will later send 3-day /
+ * 1-day warning emails and, on `trialEndsAt`, either convert (Scenario A —
+ * if a PM has since been attached) or cancel + suspend the workspace
+ * (Scenario B). Plan must have `trialDays > 0`.
+ */
+export const startTrialRequestSchema = z
+  .object({
+    planId: idSchema,
+    workspaceId: idSchema.optional(),
+  })
+  .strict();
+export type StartTrialRequest = z.infer<typeof startTrialRequestSchema>;
+
+export const startTrialResponseSchema = z.object({
+  subscriptionId: idSchema,
+  status: subscriptionStatusSchema,
+  trialEndsAt: z.string(),
+});
+export type StartTrialResponse = z.infer<typeof startTrialResponseSchema>;
+
 export const subscriptionSummarySchema = z.object({
   id: idSchema,
   productId: idSchema,
@@ -242,3 +270,58 @@ export const subscriptionSummarySchema = z.object({
   updatedAt: z.string(),
 });
 export type SubscriptionSummary = z.infer<typeof subscriptionSummarySchema>;
+
+// ──────────────────────────────────────────────────────────────────────
+// Wave 5 — Plan change (Flow R / AE)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * `GET /v1/billing/subscription/change-plan/preview` — dry-run a plan
+ * change. Returns proration math (Stripe) or the next-renewal note
+ * (SSLCommerz). Subject to the seat-overflow guard.
+ */
+export const changePlanPreviewQuerySchema = z
+  .object({
+    newPlanId: idSchema,
+    workspaceId: idSchema.optional(),
+  })
+  .strict();
+export type ChangePlanPreviewQuery = z.infer<typeof changePlanPreviewQuerySchema>;
+
+export const changePlanPreviewResponseSchema = z.object({
+  subscriptionId: idSchema,
+  fromPlanId: idSchema,
+  toPlanId: idSchema,
+  gateway: z.enum(['stripe', 'sslcommerz', 'paypal', 'paddle']).nullable(),
+  prorationAmount: z.number().int(),
+  creditApplied: z.number().int().min(0),
+  nextChargeAmount: z.number().int().min(0),
+  nextChargeDate: z.string().nullable(),
+  currency: z.string(),
+  note: z.string().optional(),
+});
+export type ChangePlanPreviewResponse = z.infer<typeof changePlanPreviewResponseSchema>;
+
+/**
+ * `POST /v1/billing/subscription/change-plan` — apply a plan change.
+ *
+ * Re-runs the seat-overflow guard (defence in depth) and dispatches to
+ * the gateway adapter. SSLCommerz subscriptions schedule the change for
+ * the next renewal cycle (gateway cannot proration mid-cycle).
+ */
+export const changePlanRequestSchema = z
+  .object({
+    newPlanId: idSchema,
+    workspaceId: idSchema.optional(),
+  })
+  .strict();
+export type ChangePlanRequest = z.infer<typeof changePlanRequestSchema>;
+
+export const changePlanResponseSchema = z.object({
+  subscription: subscriptionSummarySchema,
+  scheduled: z.boolean(),
+  effectiveAt: z.string(),
+  prorationAmount: z.number().int(),
+  currency: z.string(),
+});
+export type ChangePlanResponse = z.infer<typeof changePlanResponseSchema>;
