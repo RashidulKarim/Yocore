@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { ErrorAlert } from '../components/ui.js';
 
-interface CronJob { jobName: string; dateKey: string; lockedAt?: string; completedAt?: string | null; error?: string | null }
+interface CronJob { jobName: string; lastDateKey: string; lastLockedAt?: string; lastCompletedAt?: string | null; lastInstanceId?: string; error?: string | null }
 interface CronStatus { jobs: CronJob[] }
 
 export function Dashboard() {
@@ -35,11 +35,11 @@ export function Dashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {cron.data.jobs.map((j) => (
-                  <tr key={`${j.jobName}-${j.dateKey}`}>
+                  <tr key={`${j.jobName}-${j.lastDateKey}`}>
                     <td className="td font-mono text-xs">{j.jobName}</td>
-                    <td className="td">{j.dateKey}</td>
-                    <td className="td text-xs">{j.lockedAt ?? '\u2014'}</td>
-                    <td className="td text-xs">{j.completedAt ?? '\u2014'}</td>
+                    <td className="td">{j.lastDateKey}</td>
+                    <td className="td text-xs">{j.lastLockedAt ?? '\u2014'}</td>
+                    <td className="td text-xs">{j.lastCompletedAt ?? '\u2014'}</td>
                     <td className="td text-rose-700 text-xs">{j.error ?? ''}</td>
                   </tr>
                 ))}
