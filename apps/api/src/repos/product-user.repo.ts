@@ -17,10 +17,12 @@ export async function findByUserAndProduct(
 export interface CreateProductUserInput {
   productId: string;
   userId: string;
-  passwordHash: string;
+  passwordHash: string | null;
   name?: { first?: string | null; last?: string | null; display?: string | null };
   marketingOptIn?: boolean;
   productRole?: 'END_USER' | 'PRODUCT_ADMIN';
+  /** When true, productUser is created in ACTIVE status (admin-provisioned). */
+  active?: boolean;
 }
 
 export async function createProductUser(
@@ -31,7 +33,7 @@ export async function createProductUser(
     productId: input.productId,
     userId: input.userId,
     passwordHash: input.passwordHash,
-    passwordUpdatedAt: now,
+    passwordUpdatedAt: input.passwordHash ? now : null,
     name: {
       first: input.name?.first ?? null,
       last: input.name?.last ?? null,
@@ -39,7 +41,7 @@ export async function createProductUser(
     },
     marketingOptIn: input.marketingOptIn ?? false,
     productRole: input.productRole ?? 'END_USER',
-    status: 'UNVERIFIED',
+    status: input.active ? 'ACTIVE' : 'UNVERIFIED',
     joinedAt: now,
   });
   return doc.toObject() as ProductUserLean;

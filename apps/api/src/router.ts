@@ -173,6 +173,9 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   // ── Refund (Phase 3.4 Wave 9) ───────────────────────────────────────
   router.post('/v1/admin/products/:id/refund', requireJwt, admin.refundSubscription);
 
+  // ── Admin user provisioning (Phase 0 — EasyStock migration support) ──
+  router.post('/v1/admin/products/:id/users', requireJwt, admin.provisionProductUser);
+
   // ── Bundles (Phase 3.5 — Flow AL) ───────────────────────────────────
   router.post('/v1/admin/bundles', requireJwt, admin.createBundle);
   router.get('/v1/admin/bundles', requireJwt, admin.listBundles);

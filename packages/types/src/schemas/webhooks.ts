@@ -26,6 +26,7 @@ export const WebhookEventTypes = {
   WORKSPACE_CREATED: 'workspace.created',
   WORKSPACE_DELETED: 'workspace.deleted',
   WORKSPACE_OWNERSHIP_TRANSFERRED: 'workspace.ownership_transferred',
+  WORKSPACE_MEMBER_ROLE_CHANGED: 'workspace.member_role_changed',
 
   // Subscription lifecycle (standalone)
   SUBSCRIPTION_ACTIVATED: 'subscription.activated',
@@ -127,6 +128,27 @@ export const workspaceWebhookEnvelopeSchema = webhookEnvelopeSchema(
   }),
 );
 export type WorkspaceWebhookEnvelope = z.infer<typeof workspaceWebhookEnvelopeSchema>;
+
+/**
+ * `workspace.member_role_changed` — emitted whenever a workspace member's
+ * role assignment is updated via `PATCH /v1/workspaces/:id/members/:userId`.
+ * Subscribers (e.g. EasyStock) should use this to invalidate any cached
+ * permissions/role data they hold for the affected user.
+ */
+export const workspaceMemberRoleChangedWebhookEnvelopeSchema = webhookEnvelopeSchema(
+  z.object({
+    workspaceId: z.string(),
+    productId: z.string(),
+    userId: z.string(),
+    previousRoleSlug: z.string(),
+    newRoleSlug: z.string(),
+    changedByUserId: z.string(),
+    changedAt: z.string().datetime(),
+  }),
+);
+export type WorkspaceMemberRoleChangedWebhookEnvelope = z.infer<
+  typeof workspaceMemberRoleChangedWebhookEnvelopeSchema
+>;
 
 // ── Status enums (round-trip) ──────────────────────────────────────────
 export const WebhookDeliveryStatuses = {

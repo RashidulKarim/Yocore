@@ -29,6 +29,7 @@ import {
   listBundlesQuerySchema,
   grantBundleAccessRequestSchema,
   swapBundleComponentRequestSchema,
+  adminProvisionUserRequestSchema,
 } from '@yocore/types';
 import { AppError, ErrorCode } from '../lib/errors.js';
 import { safeEqual } from '../lib/tokens.js';
@@ -67,6 +68,8 @@ export interface AdminHandlers {
   deleteCoupon: RequestHandler;
   // Refund (Flow AD — Phase 3.4 Wave 9)
   refundSubscription: RequestHandler;
+  // Admin user provisioning (Phase 0 — EasyStock migration support)
+  provisionProductUser: RequestHandler;
   // Bundles (Phase 3.5 — Flow AL)
   createBundle: RequestHandler;
   listBundles: RequestHandler;
@@ -451,6 +454,41 @@ export function adminHandlerFactory(ctx: AppContext): AdminHandlers {
         actor: { type: 'super_admin', id: auth.userId },
       });
       res.status(200).json(result);
+    }),
+
+    // ── Admin user provisioning (Phase 0 — EasyStock migration support) ──
+    provisionProductUser: asyncHandler(async (req, res) => {
+      const auth = requireSuperAdmin(req);
+      const productId = req.params['id'] ?? '';
+      const body = adminProvisionUserRequestSchema.parse(req.body);
+      const ip =
+        (req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+          req.socket.remoteAddress ||
+          null) ?? null;
+      const result = await ctx.adminOps.provisionProductUser({
+        productId,
+        email: body.email,
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        sendPasswordResetEmail: body.sendPasswordResetEmail,
+        actorId: auth.userId,
+        ip,
+        defaultFromAddress: env.EMAIL_FROM_DEFAULT,
+      });
+      await req.audit?.({
+        action: result.user.created
+          ? 'admin.user.provisioned'
+          : 'admin.user.reset_email_resent',
+        outcome: 'success',
+        productId,
+        resource: { type: 'user', id: result.user.id },
+        metadata: {
+          email: result.user.email,
+          productUserId: result.user.productUserId,
+          resetEmailQueued: result.resetEmailQueued,
+        },
+        actor: { type: 'super_admin', id: auth.userId },
+      });
+      res.status(result.user.created ? 201 : 200).json(result);
     }),
 
     // ── Bundles (Phase 3.5 — Flow AL) ───────────────────────────────────

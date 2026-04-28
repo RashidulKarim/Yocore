@@ -12,7 +12,15 @@ import { AppError, ErrorCode } from '../lib/errors.js';
 import * as subscriptionRepo from '../repos/subscription.repo.js';
 import * as cronLockRepo from '../repos/cron-lock.repo.js';
 import * as deliveryRepo from '../repos/webhook-delivery.repo.js';
+import * as productRepo from '../repos/product.repo.js';
+import * as userRepo from '../repos/user.repo.js';
+import * as productUserRepo from '../repos/product-user.repo.js';
+import * as authTokenRepo from '../repos/auth-token.repo.js';
+import * as emailQueueRepo from '../repos/email-queue.repo.js';
 import type { WebhookDeliveryService } from './webhook-delivery.service.js';
+
+/** 1 hour TTL — matches password-reset.service.ts. */
+const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
 
 const ALLOWED_FORCE_STATUSES = [
   'TRIALING',
@@ -71,6 +79,34 @@ export interface AdminOpsService {
   }>;
 
   retryWebhookDelivery(id: string): Promise<deliveryRepo.WebhookDeliveryLean>;
+
+  /**
+   * Provision a user into a product without setting a password. Marks the
+   * email verified (admin trust) and — when `sendPasswordResetEmail` is
+   * true — issues a `password_reset` token and queues the reset email so
+   * the user can set their own password.
+   *
+   * Idempotent on `(productId, email)`. If the productUser already exists,
+   * `created` is false; the reset email is still re-issued when requested.
+   */
+  provisionProductUser(args: {
+    productId: string;
+    email: string;
+    name?: { first?: string | undefined; last?: string | undefined } | undefined;
+    sendPasswordResetEmail: boolean;
+    actorId: string;
+    ip: string | null;
+    defaultFromAddress: string;
+  }): Promise<{
+    user: {
+      id: string;
+      email: string;
+      productUserId: string;
+      created: boolean;
+      emailVerified: boolean;
+    };
+    resetEmailQueued: boolean;
+  }>;
 }
 
 export interface CreateAdminOpsServiceOptions {
@@ -147,6 +183,93 @@ export function createAdminOpsService(opts: CreateAdminOpsServiceOptions): Admin
       const reset = await opts.webhookDelivery.retryNow(id);
       if (!reset) throw new AppError(ErrorCode.NOT_FOUND, 'Webhook delivery not found');
       return reset;
+    },
+
+    async provisionProductUser(args) {
+      const product = await productRepo.findProductById(args.productId);
+      if (!product) {
+        throw new AppError(ErrorCode.NOT_FOUND, 'Product not found');
+      }
+      if (product.status !== 'ACTIVE') {
+        throw new AppError(
+          ErrorCode.VALIDATION_FAILED,
+          'Product is not ACTIVE',
+          { productId: args.productId, status: product.status },
+        );
+      }
+
+      // 1) Find or create the global user. END_USERs keep credentials in
+      //    productUsers so the global user has no passwordHash.
+      let user = await userRepo.findUserByEmail(args.email);
+      if (!user) {
+        user = await userRepo.createUser({
+          email: args.email,
+          passwordHash: null,
+          role: 'END_USER',
+          emailVerified: true,
+          emailVerifiedMethod: 'admin_provisioned',
+        });
+      }
+
+      // 2) Find or create the productUser (idempotent on productId+userId).
+      let productUser = await productUserRepo.findByUserAndProduct(
+        product._id,
+        user._id,
+      );
+      const created = !productUser;
+      if (!productUser) {
+        productUser = await productUserRepo.createProductUser({
+          productId: product._id,
+          userId: user._id,
+          passwordHash: null,
+          ...(args.name !== undefined ? { name: args.name } : {}),
+          active: true,
+        });
+      }
+
+      // 3) Optionally issue a password-reset token + queue the email.
+      let resetEmailQueued = false;
+      if (args.sendPasswordResetEmail) {
+        const issued = await authTokenRepo.issueToken({
+          userId: user._id,
+          productId: product._id,
+          type: 'password_reset',
+          ttlSeconds: PASSWORD_RESET_TTL_SECONDS,
+          ip: args.ip,
+        });
+        const fromAddress = product.settings?.fromEmail ?? args.defaultFromAddress;
+        const fromName = product.settings?.fromName ?? product.name;
+        await emailQueueRepo.enqueueEmail({
+          productId: product._id,
+          userId: user._id,
+          toAddress: user.email,
+          fromAddress,
+          fromName,
+          subject: `Set your password for ${product.name}`,
+          templateId: 'auth.password_reset',
+          category: 'security',
+          priority: 'critical',
+          templateData: {
+            productSlug: product.slug,
+            productName: product.name,
+            resetToken: issued.token,
+            expiresAt: issued.expiresAt.toISOString(),
+            adminProvisioned: true,
+          },
+        });
+        resetEmailQueued = true;
+      }
+
+      return {
+        user: {
+          id: user._id,
+          email: user.email,
+          productUserId: productUser._id,
+          created,
+          emailVerified: user.emailVerified ?? true,
+        },
+        resetEmailQueued,
+      };
     },
   };
 }

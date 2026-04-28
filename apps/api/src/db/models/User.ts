@@ -24,7 +24,7 @@ const userSchema = new Schema(
     emailVerifiedAt: { type: Date, default: null },
     emailVerifiedMethod: {
       type: String,
-      enum: ['email_link', 'invitation', 'oauth_google', 'oauth_github', null],
+      enum: ['email_link', 'invitation', 'oauth_google', 'oauth_github', 'admin_provisioned', null],
       default: null,
     },
 

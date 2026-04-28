@@ -31,7 +31,13 @@ export async function createUser(input: {
   passwordHash: string | null;
   role: 'SUPER_ADMIN' | 'END_USER';
   emailVerified?: boolean;
-  emailVerifiedMethod?: 'email_link' | 'invitation' | 'oauth_google' | 'oauth_github' | null;
+  emailVerifiedMethod?:
+    | 'email_link'
+    | 'invitation'
+    | 'oauth_google'
+    | 'oauth_github'
+    | 'admin_provisioned'
+    | null;
 }): Promise<UserLean> {
   const normalized = input.email.trim().toLowerCase();
   const now = new Date();

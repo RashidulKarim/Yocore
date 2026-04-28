@@ -211,3 +211,39 @@ export const listAnnouncementsQuerySchema = z
   })
   .strict();
 export type ListAnnouncementsQuery = z.infer<typeof listAnnouncementsQuerySchema>;
+
+// ── Admin: provision product user (Phase 0 — EasyStock migration support) ──
+/**
+ * `POST /v1/admin/products/:id/users` — SUPER_ADMIN provisions a user into a
+ * product without setting a password, marks the email verified, and queues a
+ * password-reset email so the user can set their own password.
+ *
+ * Idempotent on `(productId, email)`. If the productUser already exists the
+ * endpoint returns `created: false` and (optionally) re-issues the reset
+ * email.
+ */
+export const adminProvisionUserRequestSchema = z
+  .object({
+    email: z.string().email().toLowerCase().trim(),
+    name: z
+      .object({
+        first: z.string().trim().min(1).max(100).optional(),
+        last: z.string().trim().min(1).max(100).optional(),
+      })
+      .optional(),
+    sendPasswordResetEmail: z.boolean().default(true),
+  })
+  .strict();
+export type AdminProvisionUserRequest = z.infer<typeof adminProvisionUserRequestSchema>;
+
+export const adminProvisionUserResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    productUserId: z.string(),
+    created: z.boolean(),
+    emailVerified: z.boolean(),
+  }),
+  resetEmailQueued: z.boolean(),
+});
+export type AdminProvisionUserResponse = z.infer<typeof adminProvisionUserResponseSchema>;

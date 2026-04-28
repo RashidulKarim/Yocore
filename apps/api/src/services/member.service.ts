@@ -10,7 +10,9 @@ import * as workspaceMemberRepo from '../repos/workspace-member.repo.js';
 import * as productUserRepo from '../repos/product-user.repo.js';
 import * as userRepo from '../repos/user.repo.js';
 import * as roleRepo from '../repos/role.repo.js';
-import { ROLE_RANK } from '@yocore/types';
+import * as productRepo from '../repos/product.repo.js';
+import * as deliveryRepo from '../repos/webhook-delivery.repo.js';
+import { ROLE_RANK, WebhookEventTypes } from '@yocore/types';
 
 export interface MemberSummary {
   userId: string;
@@ -147,6 +149,17 @@ export function createMemberService(deps: MemberServiceDeps): MemberService {
         input.targetUserId,
         input.workspaceId,
       );
+
+      // Emit webhook so external subscribers can invalidate cached permissions.
+      await emitMemberRoleChangedWebhook({
+        productId: input.productId,
+        workspaceId: input.workspaceId,
+        userId: input.targetUserId,
+        previousRoleSlug: target.roleSlug,
+        newRoleSlug: role.slug,
+        changedByUserId: input.callerId,
+      });
+
       return buildSummary(input.productId, updated);
     },
 
@@ -171,4 +184,42 @@ export function createMemberService(deps: MemberServiceDeps): MemberService {
       );
     },
   };
+}
+
+/**
+ * Enqueue a `workspace.member_role_changed` outbound webhook. Best-effort:
+ * never throws; never blocks the role-change response. Mirrors the inline
+ * `emitWebhook` pattern used by subscription services (seat-change, refund).
+ */
+async function emitMemberRoleChangedWebhook(input: {
+  productId: string;
+  workspaceId: string;
+  userId: string;
+  previousRoleSlug: string;
+  newRoleSlug: string;
+  changedByUserId: string;
+}): Promise<void> {
+  try {
+    const product = await productRepo.findProductById(input.productId);
+    if (!product?.webhookUrl) return;
+    const now = new Date();
+    await deliveryRepo.enqueueDelivery({
+      productId: input.productId,
+      event: WebhookEventTypes.WORKSPACE_MEMBER_ROLE_CHANGED,
+      eventId: `evt_wsrole_${input.workspaceId}_${input.userId}_${now.getTime()}`,
+      url: product.webhookUrl,
+      payloadRef: input.workspaceId,
+      payload: {
+        workspaceId: input.workspaceId,
+        productId: input.productId,
+        userId: input.userId,
+        previousRoleSlug: input.previousRoleSlug,
+        newRoleSlug: input.newRoleSlug,
+        changedByUserId: input.changedByUserId,
+        changedAt: now.toISOString(),
+      },
+    });
+  } catch {
+    // Swallow — webhook emission must never break the request.
+  }
 }
