@@ -5,6 +5,7 @@ import {
   deepHealthHandler,
 } from './handlers/health.handler.js';
 import { adminHandlerFactory } from './handlers/admin.handler.js';
+import { rolesAdminHandlerFactory } from './handlers/roles-admin.handler.js';
 import { adminOpsHandlerFactory } from './handlers/admin-ops.handler.js';
 import { meHandlerFactory } from './handlers/me.handler.js';
 import { entitlementsHandlerFactory } from './handlers/entitlements.handler.js';
@@ -124,6 +125,37 @@ export function buildRouter(opts: BuildRouterOptions): Router {
   router.patch('/v1/admin/products/:id/plans/:planId', requireJwt, admin.updatePlan);
   router.post('/v1/admin/products/:id/plans/:planId/publish', requireJwt, admin.publishPlan);
   router.post('/v1/admin/products/:id/plans/:planId/archive', requireJwt, admin.archivePlan);
+
+  // ── V1.2: Custom roles + product admins (SUPER_ADMIN) ──────────────
+  const rolesAdmin = rolesAdminHandlerFactory(ctx);
+  router.get('/v1/admin/products/:id/roles', requireJwt, rolesAdmin.listRoles);
+  router.get(
+    '/v1/admin/products/:id/permissions-catalog',
+    requireJwt,
+    rolesAdmin.permissionsCatalog,
+  );
+  router.post('/v1/admin/products/:id/roles', requireJwt, rolesAdmin.createRole);
+  router.patch(
+    '/v1/admin/products/:id/roles/:roleId',
+    requireJwt,
+    rolesAdmin.updateRole,
+  );
+  router.delete(
+    '/v1/admin/products/:id/roles/:roleId',
+    requireJwt,
+    rolesAdmin.deleteRole,
+  );
+  router.get('/v1/admin/products/:id/admins', requireJwt, rolesAdmin.listProductAdmins);
+  router.post(
+    '/v1/admin/products/:id/admins',
+    requireJwt,
+    rolesAdmin.grantProductAdmin,
+  );
+  router.delete(
+    '/v1/admin/products/:id/admins/:userId',
+    requireJwt,
+    rolesAdmin.revokeProductAdmin,
+  );
 
   // ── Coupons (Phase 3.4 Wave 8) ─────────────────────────────────────
   router.post('/v1/admin/products/:id/coupons', requireJwt, admin.createCoupon);
@@ -338,6 +370,7 @@ export function buildRouter(opts: BuildRouterOptions): Router {
 
   // ─── Me / self-service (V1.0-B) ───────────────────────────────────────
   const me = meHandlerFactory(ctx);
+  router.get('/v1/users/me/profile', requireJwt, me.getProfile);
   router.delete('/v1/users/me', requireJwt, me.requestDeletion);
   router.post('/v1/users/me/cancel-deletion', requireJwt, me.cancelDeletion);
   router.get('/v1/users/me/deletion-requests', requireJwt, me.listMyDeletionRequests);

@@ -38,6 +38,7 @@ import {
   createPermissionService,
   type PermissionService,
 } from './services/permission.service.js';
+import { createRoleService, type RoleService } from './services/role.service.js';
 import {
   createWorkspaceService,
   type WorkspaceService,
@@ -165,6 +166,7 @@ export interface AppContext {
   emailPrefs: EmailPrefsService;
   pkce: PkceService;
   permission: PermissionService;
+  role: RoleService;
   workspace: WorkspaceService;
   member: MemberService;
   invitation: InvitationService;
@@ -270,6 +272,7 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
   const pkce = createPkceService({ auth });
 
   const permission = createPermissionService({ redis });
+  const role = createRoleService({ redis });
   const workspace = createWorkspaceService({
     redis,
     keyring,
@@ -394,6 +397,7 @@ export async function createAppContext(opts: CreateAppContextOptions = {}): Prom
     emailPrefs,
     pkce,
     permission,
+    role,
     workspace,
     member,
     invitation,

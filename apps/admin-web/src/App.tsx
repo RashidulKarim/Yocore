@@ -18,6 +18,8 @@ import { AllUsersSearchPage } from './pages/AllUsersSearch.js';
 import { BundlesListPage } from './pages/BundlesList.js';
 import { BundleDetailPage } from './pages/BundleDetail.js';
 import { AnnouncementsPage } from './pages/Announcements.js';
+import { ProductRolesPage } from './pages/ProductRoles.js';
+import { ProductAdminsPage } from './pages/ProductAdmins.js';
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
         <Route path="/products/:productId/users" element={<ProductUsersPage />} />
         <Route path="/products/:productId/users/:userId" element={<UserDetailPage />} />
         <Route path="/products/:productId/workspaces" element={<ProductWorkspacesPage />} />
+        <Route path="/products/:productId/roles" element={<ProductRolesPage />} />
+        <Route path="/products/:productId/admins" element={<ProductAdminsPage />} />
         <Route
           path="/products/:productId/workspaces/:workspaceId"
           element={<WorkspaceDetailPage />}

@@ -120,3 +120,14 @@ export async function removeMember(
   );
   return res.modifiedCount === 1;
 }
+
+/**
+ * V1.2-A — count active members in a product carrying a given roleId.
+ * Used as a delete-guard before removing a custom role.
+ */
+export async function countActiveByRole(
+  productId: string,
+  roleId: string,
+): Promise<number> {
+  return WorkspaceMember.countDocuments({ productId, roleId, status: 'ACTIVE' });
+}

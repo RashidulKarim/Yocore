@@ -23,6 +23,7 @@ import * as mfaRepo from '../repos/mfa.repo.js';
 import type { AppContext } from '../context.js';
 
 export interface MeHandlers {
+  getProfile: RequestHandler;
   requestDeletion: RequestHandler;
   cancelDeletion: RequestHandler;
   listMyDeletionRequests: RequestHandler;
@@ -238,6 +239,35 @@ export function meHandlerFactory(ctx: AppContext): MeHandlers {
         else res.destroy();
       });
       stream.pipe(res);
+    }),
+
+    // ── GET /v1/users/me/profile ────────────────────────────────────────
+    getProfile: asyncHandler(async (req, res) => {
+      const auth = req.auth;
+      if (!auth) throw new AppError(ErrorCode.AUTH_INVALID_TOKEN, 'Authentication required');
+      // productId comes from JWT claim (set on product-scoped tokens)
+      const productId = auth.productId ?? null;
+      const [user, pu] = await Promise.all([
+        userRepo.findUserById(auth.userId),
+        productId ? productUserRepo.findByUserAndProduct(productId, auth.userId) : Promise.resolve(null),
+      ]);
+      if (!user) throw new AppError(ErrorCode.USER_NOT_FOUND, 'User not found');
+      res.status(200).json({
+        userId: user._id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        productId: productId ?? null,
+        name: pu?.name ?? null,
+        avatarUrl: pu?.avatarUrl ?? null,
+        status: pu?.status ?? null,
+        onboarded: pu?.onboarded ?? null,
+        joinedAt: pu?.joinedAt ? new Date(pu.joinedAt).toISOString() : null,
+        lastLoginAt: pu?.lastLoginAt ? new Date(pu.lastLoginAt).toISOString() : null,
+        timezone: pu?.timezone ?? 'UTC',
+        locale: pu?.locale ?? 'en-US',
+        marketingOptIn: pu?.marketingOptIn ?? false,
+        emailPreferences: pu?.emailPreferences ?? null,
+      });
     }),
 
     // ── V1.1-C — GET /v1/users/me/mfa/status (Addendum #6) ─────────────

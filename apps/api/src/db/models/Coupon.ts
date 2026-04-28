@@ -20,7 +20,8 @@ const couponSchema = new Schema(
     expiresAt: { type: Date, default: null },
     status: { type: String, enum: ['ACTIVE', 'DISABLED', 'EXPIRED'], default: 'ACTIVE' },
     gatewayRefs: {
-      stripeCouponId: { type: String, default: null },
+      // No default: field is absent when not set so sparse unique index skips it.
+      stripeCouponId: { type: String },
     },
     createdBy: { type: String, default: null },
     _v: { type: Number, default: 1 },

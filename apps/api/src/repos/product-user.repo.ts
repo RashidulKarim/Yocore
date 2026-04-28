@@ -195,3 +195,32 @@ export async function isKnownDevice(
   });
   return found !== null;
 }
+
+// ── V1.2-C: PRODUCT_ADMIN management (System Design §5.15 / GAP-03) ──
+
+/**
+ * Sets `productRole` to either END_USER or PRODUCT_ADMIN. Caller is the
+ * SUPER_ADMIN; pre-check that the productUser exists.
+ *
+ * Returns `true` if a row was updated, `false` if no matching row.
+ */
+export async function setProductRole(
+  productId: string,
+  userId: string,
+  role: 'END_USER' | 'PRODUCT_ADMIN',
+): Promise<boolean> {
+  const res = await ProductUser.updateOne(
+    { productId, userId },
+    { $set: { productRole: role } },
+  );
+  return res.matchedCount === 1;
+}
+
+export async function listByProductRole(
+  productId: string,
+  role: 'END_USER' | 'PRODUCT_ADMIN',
+): Promise<ProductUserLean[]> {
+  return ProductUser.find({ productId, productRole: role })
+    .sort({ joinedAt: -1 })
+    .lean<ProductUserLean[]>();
+}

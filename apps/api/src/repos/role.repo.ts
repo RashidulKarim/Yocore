@@ -90,3 +90,45 @@ export async function ensurePlatformRoles(
   }
   return out;
 }
+
+// ── V1.2-A: Custom role mutations ─────────────────────────────────────
+
+export interface UpdateRoleFields {
+  name?: string;
+  description?: string | null;
+  permissions?: readonly string[];
+  inheritsFrom?: string | null;
+  isDefault?: boolean;
+}
+
+/**
+ * Update mutable fields on a role row. Returns the updated lean doc, or null
+ * if no row matched. Caller is responsible for guarding `isPlatform` (this
+ * repo touches whatever it's told to).
+ */
+export async function updateRole(
+  productId: string,
+  roleId: string,
+  fields: UpdateRoleFields,
+): Promise<RoleLean | null> {
+  const set: Record<string, unknown> = {};
+  if (fields.name !== undefined) set['name'] = fields.name;
+  if (fields.description !== undefined) set['description'] = fields.description;
+  if (fields.permissions !== undefined) set['permissions'] = [...fields.permissions];
+  if (fields.inheritsFrom !== undefined) set['inheritsFrom'] = fields.inheritsFrom;
+  if (fields.isDefault !== undefined) set['isDefault'] = fields.isDefault;
+  if (Object.keys(set).length === 0) {
+    return findById(productId, roleId);
+  }
+  return Role.findOneAndUpdate(
+    { productId, _id: roleId },
+    { $set: set },
+    { new: true },
+  ).lean<RoleLean | null>();
+}
+
+export async function deleteRole(productId: string, roleId: string): Promise<boolean> {
+  const res = await Role.deleteOne({ productId, _id: roleId });
+  return res.deletedCount === 1;
+}
+

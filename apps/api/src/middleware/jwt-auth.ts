@@ -119,3 +119,28 @@ export function requireSuperAdmin(req: Request): AuthContext {
   }
   return auth;
 }
+
+/**
+ * V1.2-C — Asserts the caller is either a SUPER_ADMIN or a PRODUCT_ADMIN
+ * for `productId` (i.e. has `productUsers.productRole === 'PRODUCT_ADMIN'`
+ * AND `status === 'ACTIVE'`).
+ *
+ * Throws PERMISSION_DENIED otherwise. Per System Design §5.15 / GAP-03.
+ */
+export async function requireProductAdminOrSuperAdmin(
+  req: Request,
+  productId: string,
+): Promise<AuthContext> {
+  const auth = requireAuth(req);
+  if (auth.role === 'SUPER_ADMIN') return auth;
+  // Lazy-import to avoid a circular dep with repos at module load.
+  const productUserRepo = await import('../repos/product-user.repo.js');
+  const pu = await productUserRepo.findByUserAndProduct(productId, auth.userId);
+  if (pu && pu.status === 'ACTIVE' && pu.productRole === 'PRODUCT_ADMIN') {
+    return auth;
+  }
+  throw new AppError(
+    ErrorCode.PERMISSION_DENIED,
+    'PRODUCT_ADMIN or SUPER_ADMIN required',
+  );
+}

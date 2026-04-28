@@ -49,29 +49,37 @@ nvm use          # reads .nvmrc → 20.11.0
 # 3. Install all workspace dependencies
 pnpm install
 
-# 4. Start local infrastructure (MongoDB replica set, Redis, Mailhog, MinIO)
+# 4. (macOS only) If you have Homebrew MongoDB installed, disable its auto-start
+#    permanently — it conflicts with Docker's MongoDB on port 27017.
+brew services stop mongodb-community 2>/dev/null || true
+launchctl unload ~/Library/LaunchAgents/homebrew.mxcl.mongodb-community.plist 2>/dev/null || true
+
+# 5. Start local infrastructure (MongoDB replica set, Redis, Mailhog, MinIO)
 docker compose up -d
 
 # Wait ~10 s for Mongo replica set to initialise, then verify:
 docker compose ps
 # All four containers should show "healthy" / "Up"
 
-# 5. Copy and configure environment
+# 6. Copy and configure environment
 cp .env.example .env
 # Then edit .env — see "Environment variables" section below.
 
-# 6. Build shared packages first (api and others import from @yocore/types)
+# 7. Build shared packages first (api and others import from @yocore/types)
 pnpm turbo run build --filter=@yocore/types
 
-# 7. Seed demo data (creates a demo product + sample billing plans)
+# 8. Seed demo data (creates a demo product + sample billing plans)
 pnpm tsx scripts/seed-dev.ts
 
-# 8. Bootstrap the first Super Admin account (run once only)
+# 9. Bootstrap JWT signing key (required before first signin)
+pnpm tsx scripts/bootstrap-jwt-key.ts
+
+# 10. Bootstrap the first Super Admin account (run once only)
 pnpm tsx scripts/bootstrap-superadmin.ts \
   --email admin@yocore.test \
   --password "AdminP@ssw0rd!"
 
-# 9. Start all dev servers
+# 11. Start all dev servers
 pnpm dev
 ```
 
@@ -302,12 +310,16 @@ pnpm tsx scripts/bootstrap-jwt-key.ts                 # rotate JWT signing keys
 
 ```bash
 # Drop database + flush Redis, then re-seed
-mongosh "mongodb://localhost:27017/yocore?replicaSet=rs0" --eval "db.dropDatabase()"
+docker exec yocore-mongo mongosh --quiet --eval "db.getSiblingDB('yocore').dropDatabase()"
 redis-cli FLUSHALL
-pnpm tsx scripts/seed-dev.ts
+pnpm tsx scripts/bootstrap-jwt-key.ts
 pnpm tsx scripts/bootstrap-superadmin.ts \
   --email admin@yocore.test --password "AdminP@ssw0rd!"
+pnpm tsx scripts/seed-dev.ts
 ```
+
+> **Important:** After dropping the database you MUST run `bootstrap-jwt-key.ts` before `bootstrap-superadmin.ts`.
+> Without a JWT signing key the API cannot issue any tokens and signin will fail with "No active JWT signing key".
 
 ---
 
@@ -551,7 +563,7 @@ cd ..\..\
 
 2. **Always use the API's config when inserting test data:**
    ```bash
-   # ❌ Wrong — goes to standalone MongoDB
+   # ❌ Wrong — goes to standalone MongoDB on default port
    mongosh "mongodb://localhost:27017/yocore" --eval "db.products.insertOne({...})"
    
    # ✅ Correct — goes to Docker's MongoDB (replica set)

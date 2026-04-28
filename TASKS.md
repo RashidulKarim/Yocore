@@ -380,6 +380,66 @@
 
 ---
 
+## 🔜 Version 1.2 — Roles & Permissions Full Implementation
+
+> GAP: Permission/Role system is partially implemented. Platform roles + permission check API exist (Phase 3.2), but the following are missing per PRD §7.2, §4.5 and System Design §5.15.
+
+### V1.2-A: Custom Role CRUD API (PRD §7.2 P1)
+
+> `role.repo.ts`-এ `createRole()` আছে কিন্তু কোনো HTTP endpoint নেই।
+
+- [x] `POST /v1/admin/products/:id/roles` — custom role create (name, slug, permissions[], inheritsFrom?)
+- [x] `GET /v1/admin/products/:id/roles` — list all roles for a product (platform + custom)
+- [x] `PATCH /v1/admin/products/:id/roles/:roleId` — update custom role permissions/name (platform roles immutable → 403)
+- [x] `DELETE /v1/admin/products/:id/roles/:roleId` — delete custom role (guard: no active members with this role → 409 RESOURCE_CONFLICT)
+- [x] Zod schemas in `packages/types/src/schemas/roles.ts` (createRole, updateRole, roleSummary)
+- [x] `role.repo.ts` extended: `updateRole`, `deleteRole`, `countMembersWithRole`
+- [x] Redis cache invalidation on role mutation (`cache:invalidate perm:<productId>:*` broadcast)
+- [x] Integration tests: create/dup-slug/update/delete/delete-with-members/immutable-platform-role
+
+### V1.2-B: Permission inheritance resolution (PRD §4.5 P1 / System Design §1.8)
+
+> `roles.inheritsFrom` field DB-তে আছে কিন্তু `permission.service.ts` resolve করে না।
+
+- [x] `permission.service.ts` → `loadFromMongo` recursive inheritance: follow `inheritsFrom` chain (max depth 3, cycle guard) and merge `permissions[]`
+- [x] `role.repo.ts` → `findById` already exists; chain walk in service layer
+- [x] Unit tests: linear chain A→B→C, cycle guard (throws VALIDATION_FAILED), wildcard short-circuits chain
+
+### V1.2-C: PRODUCT_ADMIN role enforcement (System Design §5.15 — GAP-03)
+
+> `productUsers.productRole` field আছে কিন্তু middleware ও endpoints নেই।
+
+- [x] `src/middleware/jwt-auth.ts` — `requireProductAdminOrSuperAdmin(productId)` helper: checks `productUsers.productRole === 'PRODUCT_ADMIN' AND productId matches AND status ACTIVE`, OR `role:'SUPER_ADMIN'` in JWT
+- [x] `GET /v1/admin/products/:id/admins` — list all PRODUCT_ADMINs for a product
+- [x] `POST /v1/admin/products/:id/admins` — body: `{ userId }` — sets `productRole: 'PRODUCT_ADMIN'` (target must be existing productUser of this product)
+- [x] `DELETE /v1/admin/products/:id/admins/:userId` — revokes PRODUCT_ADMIN → sets back to `END_USER`
+- [x] All 3 endpoints behind `requireSuperAdmin` (only Super Admin can grant/revoke PRODUCT_ADMIN)
+- [x] Audit log: `product_admin.granted` / `product_admin.revoked`
+- [x] Integration tests: grant/revoke/list/non-existent-user-403
+
+### V1.2-D: `apps/admin-web` — Roles & Permissions Screens
+
+> কোনো role/permission view/management screen নেই।
+
+- [x] **Screen 14** — Product Roles & Permissions (`/products/:productId/roles`)
+  - Table: role slug, name, type (Platform / Custom), permissions list (badge per permission), member count
+  - Platform roles: read-only view, no edit/delete
+  - Custom roles: inline Edit (open modal) + Delete button (disabled if members > 0)
+  - "New Role" button → create modal (name, slug, permissions multi-select from catalog, inheritsFrom dropdown)
+- [x] **Screen 14a** — Role Detail modal / side-panel
+  - Full permission list with checkboxes (for edit)
+  - `inheritsFrom` selector (shows inherited permissions as greyed badges)
+  - Save / Cancel
+- [x] **Screen 15** — Product Admins (`/products/:productId/admins`)
+  - List: user email, name, joined date, status
+  - "Grant Product Admin" button → user search autocomplete → confirm
+  - Revoke button per row
+- [x] Add "Roles" and "Admins" links to `ProductDetail.tsx` quick-links section
+- [x] Add routes in `App.tsx`: `/products/:productId/roles` + `/products/:productId/admins`
+- [x] API client methods: `listRoles`, `createRole`, `updateRole`, `deleteRole`, `listProductAdmins`, `grantProductAdmin`, `revokeProductAdmin`
+
+---
+
 ## Tracking notes
 
 - **Currently in-progress:** V1.0 — backend services for A/B/C/D landed; ToS gate, schemas, SDK, web apps pending.

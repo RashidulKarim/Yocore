@@ -157,6 +157,8 @@ export function ProductDetail() {
         <div className="flex flex-wrap gap-2">
           <Link to={`/products/${id}/users`} className="btn-secondary">View users</Link>
           <Link to={`/products/${id}/workspaces`} className="btn-secondary">View workspaces</Link>
+          <Link to={`/products/${id}/roles`} className="btn-secondary">Roles & permissions</Link>
+          <Link to={`/products/${id}/admins`} className="btn-secondary">Product admins</Link>
         </div>
       </div>
 

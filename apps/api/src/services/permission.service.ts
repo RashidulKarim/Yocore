@@ -59,6 +59,37 @@ export interface CreatePermissionServiceDeps {
 }
 
 export function createPermissionService(deps: CreatePermissionServiceDeps): PermissionService {
+  /**
+   * Resolve a role's effective permission set by walking the `inheritsFrom`
+   * chain (max depth 4, cycle-safe). Wildcard `*` short-circuits.
+   */
+  async function resolveRolePermissions(
+    productId: string,
+    roleId: string,
+  ): Promise<{ slug: string; granted: string[] } | null> {
+    const merged = new Set<string>();
+    const seen = new Set<string>();
+    let cursor: string | null = roleId;
+    let topSlug: string | null = null;
+    let depth = 0;
+    while (cursor) {
+      if (seen.has(cursor)) break; // cycle guard
+      seen.add(cursor);
+      depth += 1;
+      if (depth > 5) break; // safety
+      const role = await roleRepo.findById(productId, cursor);
+      if (!role) break;
+      if (topSlug === null) topSlug = role.slug;
+      for (const p of role.permissions) {
+        merged.add(p);
+        if (p === '*') return { slug: topSlug, granted: ['*'] };
+      }
+      cursor = role.inheritsFrom ?? null;
+    }
+    if (topSlug === null) return null;
+    return { slug: topSlug, granted: [...merged] };
+  }
+
   async function loadFromMongo(input: CheckPermissionsInput): Promise<CachedPerms> {
     const member = await workspaceMemberRepo.findMember(
       input.productId,
@@ -68,9 +99,9 @@ export function createPermissionService(deps: CreatePermissionServiceDeps): Perm
     if (!member || member.status !== 'ACTIVE') {
       return { roleSlug: null, granted: [] };
     }
-    const role = await roleRepo.findById(input.productId, member.roleId);
-    if (!role) return { roleSlug: member.roleSlug, granted: [] };
-    return { roleSlug: role.slug, granted: [...role.permissions] };
+    const resolved = await resolveRolePermissions(input.productId, member.roleId);
+    if (!resolved) return { roleSlug: member.roleSlug, granted: [] };
+    return { roleSlug: resolved.slug, granted: resolved.granted };
   }
 
   async function readCache(key: string): Promise<CachedPerms | null> {
@@ -141,6 +172,9 @@ export function createPermissionService(deps: CreatePermissionServiceDeps): Perm
  * Subscribe a Redis client (separate connection — pub/sub mode) to the
  * cache-invalidation channel. The handler DELs the matching local key so a
  * subsequent check re-reads from Mongo.
+ *
+ * Special suffix `:__bulk__` triggers a SCAN-based wipe of all
+ * `perm:<productId>:*` keys (used by role-mutation broadcasts).
  */
 export async function subscribePermInvalidation(
   subscriber: Redis,
@@ -150,6 +184,24 @@ export async function subscribePermInvalidation(
   subscriber.on('message', (channel, message) => {
     if (channel !== CACHE_INVALIDATE_CHANNEL) return;
     if (!message.startsWith('perm:')) return;
+    if (message.endsWith(':__bulk__')) {
+      const prefix = message.slice(0, -'__bulk__'.length); // perm:<productId>:
+      void (async () => {
+        let cursor = '0';
+        do {
+          const [next, keys] = await cacheClient.scan(
+            cursor,
+            'MATCH',
+            `${prefix}*`,
+            'COUNT',
+            500,
+          );
+          cursor = next;
+          if (keys.length > 0) await cacheClient.del(...keys);
+        } while (cursor !== '0');
+      })();
+      return;
+    }
     void cacheClient.del(message);
   });
 }

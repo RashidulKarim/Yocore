@@ -17,6 +17,11 @@ export async function findUserById(id: string): Promise<UserLean | null> {
   return User.findById(id).lean<UserLean | null>();
 }
 
+export async function findManyByIds(ids: readonly string[]): Promise<UserLean[]> {
+  if (ids.length === 0) return [];
+  return User.find({ _id: { $in: ids } }).lean<UserLean[]>();
+}
+
 export async function findSuperAdmin(): Promise<UserLean | null> {
   return User.findOne({ role: 'SUPER_ADMIN' }).lean<UserLean | null>();
 }

@@ -1,7 +1,7 @@
 # YoCore — User Manual
 
-**Version:** 1.0  
-**Last updated:** April 27, 2026
+**Version:** 1.1  
+**Last updated:** April 28, 2026
 
 ---
 
@@ -27,6 +27,7 @@
    - 5.4 Forgot / Reset Password
    - 5.5 Email Verification
    - 5.6 PKCE / Authorize Flow
+   - 5.7 Direct API Sign-in (no auth-web)
 6. [REST API Reference](#6-rest-api-reference)
    - 6.1 Health
    - 6.2 Authentication
@@ -77,20 +78,21 @@ End users **never interact with YoCore directly**. They interact with a Yo produ
 ┌───────────────────▼─────────────────────┐
 │      YoCore API   http://localhost:3000  │
 │        Express 4 · MongoDB 7 · Redis 7  │
-└──────┬──────────────────────┬───────────┘
-       │                      │
-┌──────▼──────┐       ┌───────▼────────┐
-│  auth-web   │       │  Yo Products   │
-│  :5174      │       │  (via SDK /    │
-│  PKCE / MFA │       │   API key)     │
-└─────────────┘       └────────────────┘
+└──────┬──────────────────┬───────────────┘
+       │                  │
+┌──────▼──────┐   ┌───────▼────────┐   ┌──────────────────┐
+│  auth-web   │   │  Yo Products   │   │  demo-yopm       │
+│  :5174      │   │  (via SDK /    │   │  :5175           │
+│  PKCE / MFA │   │   API key)     │   │  dev test bench  │
+└─────────────┘   └────────────────┘   └──────────────────┘
 ```
 
 | App | URL (local) | Who uses it |
 |---|---|---|
 | `apps/api` | `http://localhost:3000` | All clients via REST |
 | `apps/admin-web` | `http://localhost:5173` | Super Admin only |
-| `apps/auth-web` | `http://localhost:5174` | End users (hosted login/signup) |
+| `apps/auth-web` | `http://localhost:5174` | End users (hosted login/signup via PKCE) |
+| `apps/demo-yopm` | `http://localhost:5175` | Developers — full-feature test playground |
 | Mailhog | `http://localhost:8025` | View dev emails |
 | MinIO | `http://localhost:9001` | View dev S3 objects |
 
@@ -137,6 +139,12 @@ pnpm tsx scripts/bootstrap-superadmin.ts \
 
 # 7. Start all apps in watch mode
 pnpm dev
+
+# 8. (Optional) Start the demo-yopm test playground
+#    See apps/demo-yopm/README.md for required env vars
+set -a; source apps/demo-yopm/.env; set +a
+pnpm --filter @yocore/demo-yopm dev
+# → open http://localhost:5175
 ```
 
 ### Verify everything is working
@@ -499,6 +507,29 @@ Clicking the link:
 
 If the link is expired (>24 hours): shows an error with a "Resend verification" option.  
 If clicked again after already verified: silently re-issues tokens (idempotent).
+
+### 5.7 Direct API Sign-in (no auth-web)
+
+Products that implement their own login UI (rather than delegating to auth-web) can call the signin endpoint directly — no PKCE redirect required.
+
+```json
+POST /v1/auth/signin
+{
+  "email": "user@example.com",
+  "password": "SecureP@ssw0rd!",
+  "productSlug": "yopm",
+  "rememberMe": true
+}
+```
+
+- If MFA is **not enrolled**: response is `{"status":"signed_in", "tokens":{...}}` — store the tokens and continue.
+- If MFA is **enrolled**: response is `{"status":"mfa_required", "mfaChallengeId":"chal_..."}` — show a TOTP input, then re-submit the same endpoint with `mfaChallengeId` + `mfaCode` added to the body.
+
+This pattern is used by `apps/demo-yopm` (see [apps/demo-yopm/README.md](../apps/demo-yopm/README.md)) and by any Yo product that hosts its own login screen.
+
+> **Security note:** The API response is always `AUTH_INVALID_CREDENTIALS` on failure regardless of whether the email exists or the password is wrong — email enumeration is prevented by design.
+
+---
 
 ### 5.6 PKCE / Authorize Flow
 
@@ -1023,6 +1054,9 @@ app.post('/webhooks/yocore', express.raw({ type: '*/*' }), (req, res) => {
 
 ### Workflow B: User signup → subscription
 
+There are two integration patterns:
+
+**Pattern 1 — Hosted auth-web (PKCE redirect):**
 1. User visits your product and clicks **Sign up**
 2. Your product redirects to auth-web: `http://localhost:5174/signup?product=yonotes`
 3. User fills in name / email / password → YoCore sends verification email
@@ -1030,6 +1064,15 @@ app.post('/webhooks/yocore', express.raw({ type: '*/*' }), (req, res) => {
 5. Your product calls `POST /v1/auth/finalize-onboarding` to create the first workspace
 6. User selects a plan → your product calls `POST /v1/billing/checkout`
 7. User completes Stripe checkout → `subscription.activated` webhook fires → you grant access
+
+**Pattern 2 — Direct API (your own login UI):**
+1. User fills in name / email / password on *your* signup page
+2. Your product calls `POST /v1/auth/signup` with `productSlug`
+3. User clicks verification email link → your product calls `GET /v1/auth/verify-email?token=...` → tokens returned → store them
+4. Your product calls `POST /v1/auth/signin` with `productSlug` to sign in (or your `/verify-email` handler auto-signs in via the returned tokens)
+5. Steps 5–7 same as Pattern 1
+
+> Use **Pattern 2** when you need full control over UX/branding. Use **Pattern 1** when you want zero auth-UI maintenance. `apps/demo-yopm` uses Pattern 2 — see [apps/demo-yopm/README.md](../apps/demo-yopm/README.md) for a working reference.
 
 ### Workflow C: Invite a team member
 
@@ -1074,6 +1117,45 @@ You receive `subscription.past_due` and `subscription.canceled` webhooks through
 2. Account enters a **30-day grace period** — no data is deleted yet
 3. User can cancel deletion during grace: `POST /v1/users/me/cancel-deletion`
 4. After 30 days: `gdpr.deletion.tick` cron hard-deletes all user data across all products
+
+---
+
+### Workflow G: Test all features with demo-yopm
+
+`apps/demo-yopm` is a server-rendered Express app that lets you exercise **every** product-side YoCore feature in a browser without building a real product frontend.
+
+**Prerequisites:** API running, a product with slug `yopm-demo` created and activated in admin-web, at least one plan published.
+
+**Setup:**
+1. In admin-web, create a product with slug `yopm-demo`
+2. Activate it and configure a Stripe test-mode gateway
+3. Publish at least one plan
+4. Copy the `apiKey`, `apiSecret`, and outbound webhook secret
+5. Create `apps/demo-yopm/.env`:
+   ```bash
+   YOCORE_BASE_URL=http://localhost:3000
+   YOCORE_PRODUCT_SLUG=yopm-demo
+   YOCORE_PRODUCT_API_KEY=yc_live_pk_...
+   YOCORE_PRODUCT_API_SECRET=yc_live_sk_...
+   YOCORE_WEBHOOK_SECRET=whsec_...
+   DEMO_YOPM_PORT=5175
+   ```
+6. Start the demo: `set -a; source apps/demo-yopm/.env; set +a && pnpm --filter @yocore/demo-yopm dev`
+7. Open `http://localhost:5175`
+
+**10-step full-feature walk:**
+1. `/plans` — View published plans (calls `GET /v1/products/:slug/plans`)
+2. `/signup` → verify email at Mailhog → `/verify-email?token=...` → auto sign-in
+3. `/account` → Finalize onboarding (creates workspace)
+4. `/billing` → Checkout → Stripe test card `4242 4242 4242 4242`
+5. `/workspaces` → Create a second workspace, switch between them
+6. `/workspaces/:id` → Invite a team member by email
+7. `/account/mfa` → Enrol TOTP, save recovery codes
+8. `/signout` → `/signin` → enter TOTP code (MFA second leg)
+9. `/billing` → Change plan, preview proration, apply, manage seats
+10. `/webhooks/log` → Inspect all webhook events received
+
+For the full walkthrough including troubleshooting tips, see [apps/demo-yopm/README.md](../apps/demo-yopm/README.md).
 
 ---
 
@@ -1240,4 +1322,4 @@ For the full list with HTTP mappings, see `docs/error-codes.md`.
 
 ---
 
-*This manual covers YoCore v1.0. For architecture decisions, see `docs/adr/`. For incident playbooks, see `docs/runbooks/`.*
+*This manual covers YoCore v1.1. For architecture decisions, see `docs/adr/`. For incident playbooks, see `docs/runbooks/`.*

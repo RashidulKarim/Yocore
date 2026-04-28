@@ -46,7 +46,7 @@ export function BundlesListPage() {
     queryKey: ['admin', 'bundles', productFilter],
     queryFn: () =>
       api<{ bundles: Bundle[] }>('GET', '/v1/admin/bundles', {
-        query: { productId: productFilter || undefined, limit: 100 },
+        query: { productId: productFilter || undefined },
       }),
   });
 

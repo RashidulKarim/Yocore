@@ -1,143 +1,79 @@
 /**
- * YoPM Demo App — minimal Express server demonstrating end-to-end YoCore
- * integration:
+ * YoPM Demo App — full end-user playground for YoCore.
  *
- *   1. PKCE login start (`GET /login`)         — builds /authorize URL
- *   2. PKCE callback     (`GET /callback`)     — exchanges code → tokens
- *   3. Authenticated me  (`GET /me`)           — bearer token to `/v1/users/me`
- *   4. List plans        (`GET /plans`)        — server-side via API key
- *   5. Webhook receiver  (`POST /webhooks`)    — verifies HMAC then 200s
+ * Pages cover every public/end-user feature: plans, signup, email
+ * verification, signin (incl. MFA), forgot/reset password, account
+ * (sessions/MFA/email-prefs/email-change/data-export/deletion),
+ * workspaces (CRUD/members/invitations/transfer/switch), billing
+ * (checkout/trial/change-plan/seats/pause/resume/coupon/migrate-gateway/
+ * tax-profile/invoices), bundles (checkout/cancel) and a webhook
+ * receiver with an inspector.
  *
- * In-memory session for demo only — not for production.
+ * Auth: sign-in is direct (POST /v1/auth/signin with productSlug);
+ * the auth-web micro-frontend is NOT required. Tokens are kept in an
+ * in-memory cookie session for demo purposes only.
  */
 import express, { type Request, type Response } from 'express';
-import { randomBytes } from 'node:crypto';
-import {
-  YoCoreClient,
-  YoCoreServer,
-  verifyWebhookSignature,
-  WebhookSignatureError,
-} from '@yocore/sdk';
+import cookieParser from 'cookie-parser';
+import { loadConfig } from './config.js';
+import { attachSession } from './lib/session.js';
+import { connectYopmDb } from './db/connection.js';
+import { publicRouter } from './routes/public.js';
+import { accountRouter } from './routes/account.js';
+import { workspaceRouter } from './routes/workspaces.js';
+import { billingRouter } from './routes/billing.js';
+import { bundleRouter } from './routes/bundles.js';
+import { projectsRouter } from './routes/projects.js';
+import { webhookRouter } from './routes/webhooks.js';
 
-const port = Number(process.env['DEMO_YOPM_PORT'] ?? 5175);
-const yocoreBaseUrl = process.env['YOCORE_BASE_URL'] ?? 'http://localhost:4000';
-const apiKey = process.env['YOCORE_PRODUCT_API_KEY'] ?? 'pk_demo_missing';
-const apiSecret = process.env['YOCORE_PRODUCT_API_SECRET'] ?? 'sk_demo_missing';
-const productSlug = process.env['YOCORE_PRODUCT_SLUG'] ?? 'yopm-demo';
-const webhookSecret = process.env['YOCORE_WEBHOOK_SECRET'] ?? 'whsec_demo_missing';
-const redirectUri = `http://localhost:${port}/callback`;
+export function createApp(): express.Express {
+  const cfg = loadConfig();
+  const app = express();
 
-const client = new YoCoreClient({ apiKey, baseUrl: yocoreBaseUrl });
-const server = new YoCoreServer({ apiKey, apiSecret, baseUrl: yocoreBaseUrl, productSlug });
+  // 👉 Webhook router goes BEFORE express.json() so the raw body survives.
+  app.use(webhookRouter(cfg));
 
-/** state → { verifier, createdAt } */
-const pkceStore = new Map<string, { verifier: string; createdAt: number }>();
-/** state → access token (demo only). */
-const sessionTokens = new Map<string, string>();
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+  app.use(attachSession);
 
-const app = express();
-// Webhook route MUST get raw body for HMAC verification — register BEFORE json().
-app.use('/webhooks', express.raw({ type: '*/*' }));
-app.use(express.json());
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ ok: true, service: 'demo-yopm' });
-});
-
-app.get('/', (_req: Request, res: Response) => {
-  res.type('html').send(`
-    <h1>YoPM Demo</h1>
-    <ul>
-      <li><a href="/login">Sign in via YoCore (PKCE)</a></li>
-      <li><a href="/plans">List plans</a></li>
-    </ul>
-  `);
-});
-
-app.get('/login', async (_req: Request, res: Response) => {
-  const verifier = await YoCoreClient.createPkceVerifier();
-  const challenge = await YoCoreClient.pkceChallenge(verifier);
-  const state = randomBytes(16).toString('hex');
-  pkceStore.set(state, { verifier, createdAt: Date.now() });
-  const url = client.buildAuthorizeUrl({
-    productSlug,
-    redirectUri,
-    state,
-    codeChallenge: challenge,
-    scope: 'profile billing',
+  app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json({ ok: true, service: 'demo-yopm' });
   });
-  res.redirect(302, url);
-});
 
-app.get('/callback', async (req: Request, res: Response) => {
-  const code = String(req.query['code'] ?? '');
-  const state = String(req.query['state'] ?? '');
-  const entry = pkceStore.get(state);
-  if (!code || !entry) {
-    res.status(400).type('text').send('Missing or unknown state/code');
-    return;
-  }
-  pkceStore.delete(state);
-  try {
-    const tokens = await client.exchangeCode({ code, verifier: entry.verifier, redirectUri });
-    sessionTokens.set(state, tokens.accessToken);
-    client.setAccessToken(tokens.accessToken);
-    res.type('html').send(`
-      <h1>Signed in</h1>
-      <p>Access token issued. <a href="/me?s=${state}">View profile</a></p>
-    `);
-  } catch (err) {
-    res.status(500).type('text').send(`Exchange failed: ${(err as Error).message}`);
-  }
-});
+  app.use(publicRouter(cfg));
+  app.use(accountRouter(cfg));
+  app.use(workspaceRouter(cfg));
+  app.use(billingRouter(cfg));
+  app.use(bundleRouter(cfg));
+  app.use(projectsRouter(cfg));
 
-app.get('/me', async (req: Request, res: Response) => {
-  const token = sessionTokens.get(String(req.query['s'] ?? ''));
-  if (!token) {
-    res.status(401).type('text').send('Not signed in');
-    return;
-  }
-  client.setAccessToken(token);
-  try {
-    const me = await client.me();
-    res.json(me);
-  } catch (err) {
-    res.status(502).type('text').send(`me failed: ${(err as Error).message}`);
-  }
-});
-
-app.get('/plans', async (_req: Request, res: Response) => {
-  try {
-    const plans = await server.listPlans(productSlug);
-    res.json(plans);
-  } catch (err) {
-    res.status(502).type('text').send(`listPlans failed: ${(err as Error).message}`);
-  }
-});
-
-app.post('/webhooks', (req: Request, res: Response) => {
-  const sig = req.header('x-yocore-signature');
-  try {
-    const result = verifyWebhookSignature(req.body as Buffer, sig, webhookSecret);
+  // Generic error handler — keeps the demo alive when a sub-route throws.
+  app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
     // eslint-disable-next-line no-console
-    console.log('[demo-yopm] webhook OK', { ts: result.timestamp });
-    res.status(200).json({ received: true });
-  } catch (err) {
-    if (err instanceof WebhookSignatureError) {
-      res.status(401).json({ error: 'invalid_signature', detail: err.message });
-      return;
-    }
-    res.status(500).json({ error: 'internal' });
-  }
-});
+    console.error('[demo-yopm] error', err);
+    res.status(500).type('text').send(`Internal error: ${err.message}`);
+  });
 
-// Export app for supertest-based tests (listen is guarded below).
-export { app };
+  return app;
+}
 
-// Start the server only when NOT running under the test runner.
+export const app = createApp();
+
 if (process.env['NODE_ENV'] !== 'test') {
-  app.listen(port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`[demo-yopm] listening on http://localhost:${port}  →  YoCore ${yocoreBaseUrl}`);
-  });
+  const cfg = loadConfig();
+  // Connect to the product's OWN database before accepting traffic.
+  connectYopmDb(cfg.mongoUri)
+    .then(() => {
+      app.listen(cfg.port, () => {
+        // eslint-disable-next-line no-console
+        console.log(`[demo-yopm] listening on http://localhost:${cfg.port}  →  YoCore ${cfg.yocoreBaseUrl}  (product: ${cfg.productSlug})`);
+      });
+    })
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[demo-yopm] failed to connect to product DB', err);
+      process.exit(1);
+    });
 }
